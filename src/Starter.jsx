@@ -22,7 +22,7 @@ export default function Starter() {
                     onClick={() => navigate("/register")}
                     className="w-40 p-3 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition"
                 >
-                    Sign Up
+                Register
                 </button>
             </div>
         </div>
