@@ -1,9 +1,14 @@
 import Navbar from "./components/Navbar.jsx";
-import Central from "./components/Central.jsx";
 import { useAuth } from "./context/AuthContext";
+import { useNavigate } from "react-router-dom";
+
+
+
 
 export default function Home() {
     const { user } = useAuth();
+    const navigate = useNavigate();
+
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
@@ -17,11 +22,12 @@ export default function Home() {
                 {user ? `Hello, ${user.name}! 👋` : "Welcome!"}
             </h1>
         <div className="mt-8 space-x-6">
-          <button 
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-blue-700 shadow-lg"
-          >
-            New Trace
-          </button>
+        <button 
+                        onClick={() => navigate("/new-trace")}
+                        className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-blue-700 shadow-lg"
+                    >
+                        New Trace
+                    </button>
           <button 
             className="bg-gray-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-gray-700 shadow-lg"
           >
