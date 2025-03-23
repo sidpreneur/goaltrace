@@ -1,41 +1,27 @@
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Roadmap() {
-  const [nodes, setNodes] = useState([{ id: 1, subnodes: [] }]);
-  const [lastAdded, setLastAdded] = useState("node-1");
+  const [nodes, setNodes] = useState([]); // Start with an empty list
+  const [showModal, setShowModal] = useState(false);
+  const [newHeading, setNewHeading] = useState("");
 
   const addNode = () => {
-    const newNode = {
-      id: nodes.length + 1,
-      subnodes: [],
-    };
+    setShowModal(true);
+  };
+
+  const saveNode = () => {
+    if (!newHeading.trim()) return; // Prevent empty headings
+
+    const newNode = { id: nodes.length + 1, heading: newHeading };
     setNodes([...nodes, newNode]);
-    setLastAdded(`node-${newNode.id}`);
+    setNewHeading("");
+    setShowModal(false);
   };
 
-  const addSubNode = (parentId) => {
-    setNodes(
-      nodes.map((node) =>
-        node.id === parentId
-          ? {
-              ...node,
-              subnodes: [
-                ...node.subnodes,
-                {
-                  id: `${parentId}.${node.subnodes.length + 1}`,
-                },
-              ],
-            }
-          : node
-      )
-    );
-    setLastAdded(`subnode-${parentId}.${nodes.find(n => n.id === parentId).subnodes.length + 1}`);
-  };
-
-  // A reusable vertical arrow
+  // Reusable vertical arrow
   const VerticalArrow = () => (
     <div className="flex justify-center py-6">
       <svg
@@ -53,57 +39,74 @@ export default function Roadmap() {
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100 p-6">
       <div className="flex flex-col items-center">
-        {nodes.map((node, nodeIndex) => {
-          const isLastNode = nodeIndex === nodes.length - 1;
+        <AnimatePresence>
+          {nodes.map((node, nodeIndex) => {
+            const isLastNode = nodeIndex === nodes.length - 1;
+            return (
+              <motion.div
+                key={node.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="flex flex-col items-center w-full"
+              >
+                {/* Main Node Card with Header */}
+                <Card className="w-64 text-center shadow-lg">
+                  <div className="p-4 border-b">
+                    <h3 className="text-lg font-semibold text-gray-700">
+                      {node.heading}
+                    </h3>
+                  </div>
+                  <CardContent className="p-4"></CardContent>
+                </Card>
 
-          return (
-            <div key={node.id} className="flex flex-col items-center w-full">
-              {/* Main Node Card (bigger) */}
-              <Card className="w-64 text-center shadow-lg">
-                <CardContent className="p-4 font-semibold"></CardContent>
-              </Card>
+                {!isLastNode && <VerticalArrow />}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
 
-              {(node.subnodes.length > 0 || !isLastNode) && <VerticalArrow />}
-
-              {lastAdded === `node-${node.id}` && (
-                <div className="flex gap-2 mb-6">
-                  <Button onClick={addNode}>Add Node</Button>
-                  <Button onClick={() => addSubNode(node.id)}>Add Subnode</Button>
-                </div>
-              )}
-
-              {node.subnodes.length > 0 && (
-                <div className="flex flex-col items-center w-full">
-                  {node.subnodes.map((subnode, subIndex) => {
-                    const isLastSubnode = subIndex === node.subnodes.length - 1;
-                    return (
-                      <motion.div
-                        key={subnode.id}
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex flex-col items-center w-full"
-                      >
-                        <Card className="w-40 text-center shadow-md">
-                          <CardContent className="p-2 text-sm text-gray-700"></CardContent>
-                        </Card>
-
-                        {(!isLastSubnode || !isLastNode) && <VerticalArrow />}
-
-                        {lastAdded === `subnode-${subnode.id}` && (
-                          <div className="flex gap-2 mb-6">
-                            <Button onClick={addNode}>Add Node</Button>
-                            <Button onClick={() => addSubNode(node.id)}>Add Subnode</Button>
-                          </div>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {/* Add Node Button (visible always, even when no nodes exist) */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="flex gap-2 mt-4"
+        >
+          <Button onClick={addNode}>Add Node</Button>
+        </motion.div>
       </div>
+
+      {/* Modal for entering node heading */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+          >
+            <div className="bg-white p-6 rounded-lg shadow-lg w-80">
+              <h2 className="text-lg font-semibold mb-2">Enter Node Heading</h2>
+              <input
+                type="text"
+                value={newHeading}
+                onChange={(e) => setNewHeading(e.target.value)}
+                className="w-full border p-2 rounded mb-4"
+                placeholder="Node title..."
+              />
+              <div className="flex justify-end gap-2">
+                <Button onClick={() => setShowModal(false)} className="bg-gray-400">
+                  Cancel
+                </Button>
+                <Button onClick={saveNode}>Save</Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
