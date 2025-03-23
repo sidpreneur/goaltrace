@@ -51,12 +51,18 @@ export default function Roadmap() {
                 transition={{ duration: 0.4, ease: "easeOut" }}
                 className="flex flex-col items-center w-full"
               >
-                {/* Main Node Card with Header */}
+                {/* Main Node Card with Header and Non-Functional Buttons */}
                 <Card className="w-64 text-center shadow-lg">
-                  <div className="p-4 border-b">
+                  <div className="p-4 border-b text-center">
                     <h3 className="text-lg font-semibold text-gray-700">
                       {node.heading}
                     </h3>
+                  </div>
+                  {/* Buttons below the heading */}
+                  <div className="flex justify-center gap-2 p-2">
+                    <Button>About</Button>
+                    <Button>Notes</Button>
+                    <Button>Links</Button>
                   </div>
                   <CardContent className="p-4"></CardContent>
                 </Card>
@@ -67,7 +73,7 @@ export default function Roadmap() {
           })}
         </AnimatePresence>
 
-        {/* Add Node Button (visible always, even when no nodes exist) */}
+        {/* Add Node Button */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
