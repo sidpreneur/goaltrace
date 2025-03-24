@@ -29,6 +29,18 @@ export default function Register() {
         if (data) {
             setMessage("Successfully registered! ✅");
 
+            const { error: dbError } = await supabase.from("users").insert([
+                { 
+                    name: name,
+                    email: email
+                }
+            ]);
+        
+            if (dbError) {
+                setMessage("Error saving user data: " + dbError.message);
+                return;
+            }
+
             // ✅ Automatically log in after registration
             const { error: signInError } = await supabase.auth.signInWithPassword({
                 email,
