@@ -76,7 +76,7 @@ export default function Newtrace() {
               ></textarea>
               <input
                 type="text"
-                placeholder="Tag"
+                placeholder="Tag e.g. #food #travel"
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
                 className="w-full border p-2 rounded mb-2 bg-gray-700 border-gray-600 text-white"
