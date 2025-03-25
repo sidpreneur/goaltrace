@@ -29,6 +29,7 @@ export default function Home() {
                         New Trace
                     </button>
           <button 
+          onClick = {() => navigate("/exist")}
             className="bg-gray-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-gray-700 shadow-lg"
           >
             Existing Traces

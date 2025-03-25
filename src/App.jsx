@@ -6,6 +6,7 @@ import Home from "./Home"
 import { AuthProvider } from "./context/AuthContext"
 import AuthGuard from "./components/AuthGuard" 
 import Newtrace from "./Newtrace"
+import Exist from "./Exist";
 
 
 
@@ -22,6 +23,8 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/home" element={<AuthGuard><Home /></AuthGuard>}  />
           <Route path="/new-trace" element={<AuthGuard><Newtrace /></AuthGuard>} />
+          <Route path="/exist" element={<AuthGuard><Exist /></AuthGuard>} />
+
 
         </Routes>
     </BrowserRouter>
