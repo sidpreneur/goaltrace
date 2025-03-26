@@ -8,20 +8,53 @@ export default function Roadmap() {
   const [showModal, setShowModal] = useState(false);
   const [newHeading, setNewHeading] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [activeNode, setActiveNode] = useState(null);
+  const [notes, setNotes] = useState("");
 
+  // Opens the modal to add a new node.
   const addNode = () => {
     setShowModal(true);
   };
 
+  // Saves a new node if both heading and description are provided.
   const saveNode = () => {
-    if (!newHeading.trim() || !newDescription.trim()) return;
-    const newNode = { id: nodes.length + 1, heading: newHeading, description: newDescription };
+    if (!newHeading.trim() || !newDescription.trim()) {
+      alert("Please enter both a node title and description.");
+      return;
+    }
+    const newNode = { 
+      id: nodes.length + 1, 
+      heading: newHeading, 
+      description: newDescription, 
+      notes: "" 
+    };
     setNodes([...nodes, newNode]);
     setNewHeading("");
     setNewDescription("");
     setShowModal(false);
   };
 
+  // Opens the notes modal for a given node.
+  const openNotes = (node) => {
+    setActiveNode(node);
+    setNotes(node.notes);
+    setShowNotesModal(true);
+  };
+
+  // Saves the edited notes back to the corresponding node.
+  const saveNotes = () => {
+    if (activeNode) {
+      const updatedNodes = nodes.map(n =>
+        n.id === activeNode.id ? { ...n, notes } : n
+      );
+      setNodes(updatedNodes);
+      setActiveNode(null);
+    }
+    setShowNotesModal(false);
+  };
+
+  // A simple vertical arrow component.
   const VerticalArrow = () => (
     <motion.div 
       className="flex justify-center py-6 text-gray-500"
@@ -63,10 +96,19 @@ export default function Roadmap() {
                   <p className="text-gray-400 text-sm mt-2 italic">{node.description}</p>
                 </div>
                 <div className="flex justify-center gap-2 p-3">
-                  <Button className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md">Notes</Button>
-                  <Button className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md">Attachments</Button>
+                  <Button 
+                    onClick={() => openNotes(node)} 
+                    className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
+                  >
+                    Notes
+                  </Button>
+                  <Button className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md">
+                    Attachments
+                  </Button>
                 </div>
-                <CardContent className="p-4"></CardContent>
+                <CardContent className="p-4">
+                  {/* The node notes are not displayed here */}
+                </CardContent>
               </Card>
               {!isLastNode && <VerticalArrow />}
             </motion.div>
@@ -74,15 +116,21 @@ export default function Roadmap() {
         })}
       </AnimatePresence>
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.8 }} 
+        animate={{ opacity: 1, scale: 1 }} 
+        transition={{ duration: 0.3, ease: "easeOut" }} 
         className="mt-6"
       >
-        <Button className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg shadow-lg" onClick={addNode}>Add Node</Button>
+        <Button 
+          className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg shadow-lg" 
+          onClick={addNode}
+        >
+          Add Node
+        </Button>
       </motion.div>
 
+      {/* Modal for adding a new node */}
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -108,8 +156,55 @@ export default function Roadmap() {
                 placeholder="What is it about?"
               ></textarea>
               <div className="flex justify-end gap-2">
-                <Button onClick={() => setShowModal(false)} className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Cancel</Button>
-                <Button onClick={saveNode} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Save</Button>
+                <Button 
+                  onClick={() => setShowModal(false)} 
+                  className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={saveNode} 
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal for editing notes */}
+      <AnimatePresence>
+        {showNotesModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+          >
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700">
+              <h2 className="text-lg font-semibold mb-2">Edit Notes</h2>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
+                placeholder="Enter notes..."
+              ></textarea>
+              <div className="flex justify-end gap-2">
+                <Button 
+                  onClick={() => setShowNotesModal(false)} 
+                  className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={saveNotes} 
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+                >
+                  Save
+                </Button>
               </div>
             </div>
           </motion.div>
