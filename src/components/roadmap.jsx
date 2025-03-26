@@ -64,7 +64,7 @@ export default function Roadmap() {
                 </div>
                 <div className="flex justify-center gap-2 p-3">
                   <Button className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md">Notes</Button>
-                  <Button className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md">Links</Button>
+                  <Button className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md">Attachments</Button>
                 </div>
                 <CardContent className="p-4"></CardContent>
               </Card>
