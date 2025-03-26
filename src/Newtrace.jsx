@@ -13,7 +13,7 @@ export default function Newtrace() {
   const [saved, setSaved] = useState(false);
 
   const saveDetails = () => {
-    if (!title.trim() || !description.trim() || !tag.trim()) {
+    if (!title.trim() || !tag.trim()) {
       alert("Please fill in all fields before saving.");
       return;
     }
@@ -36,7 +36,6 @@ export default function Newtrace() {
       {saved && (
   <SavedTraceCard 
     title={title} 
-    description={description} 
     tags={tag.split(" ").filter(t => t.trim().startsWith("#"))} 
   />
 )}
@@ -45,7 +44,6 @@ export default function Newtrace() {
 <div className="min-h-screen flex flex-col justify-center items-center overflow-hidden pt-16">
   <Roadmap 
     title={saved ? title : ""} 
-    description={saved ? description : ""} 
     tag={saved ? tag : ""} 
   />
 </div>
@@ -68,12 +66,6 @@ export default function Newtrace() {
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full border p-2 rounded mb-2 bg-gray-700 border-gray-600 text-white"
               />
-              <textarea
-                placeholder="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full border p-2 rounded mb-2 bg-gray-700 border-gray-600 text-white"
-              ></textarea>
               <input
                 type="text"
                 placeholder="Tag e.g. #food #travel"

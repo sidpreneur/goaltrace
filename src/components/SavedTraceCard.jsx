@@ -8,10 +8,6 @@ const SavedTraceCard = ({ title, description, tags }) => {
           <Layers className="text-blue-400 mr-3" size={24} />
           <h2 className="text-xl font-bold text-white">{title}</h2>
         </div>
-        <div className="flex items-start mb-3">
-          <BookOpen className="text-green-400 mr-3 mt-1" size={20} />
-          <p className="text-gray-300">{description}</p>
-        </div>
         <div className="flex items-center mb-2">
           <Tag className="text-purple-400 mr-3" size={20} />
           <h3 className="text-white font-semibold">Tags:</h3>
