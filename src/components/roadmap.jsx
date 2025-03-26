@@ -38,7 +38,7 @@ export default function Roadmap() {
   // Opens the notes modal for a given node.
   const openNotes = (node) => {
     setActiveNode(node);
-    setNotes(node.notes);
+    setNotes(node.notes); //lololololoo
     setShowNotesModal(true);
   };
 
