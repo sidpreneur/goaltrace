@@ -11,7 +11,9 @@ export default function Roadmap() {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [activeNode, setActiveNode] = useState(null);
   const [notes, setNotes] = useState("");
-
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false); 
+  const [attachments, setAttachments] = useState("");
+  const [activeAttachments, setActiveAttachments] = useState([]);
   // Opens the modal to add a new node.
   const addNode = () => {
     setShowModal(true);
@@ -27,7 +29,8 @@ export default function Roadmap() {
       id: nodes.length + 1, 
       heading: newHeading, 
       description: newDescription, 
-      notes: "" 
+      notes: "", 
+      attachments: [] // Initialize attachments
     };
     setNodes([...nodes, newNode]);
     setNewHeading("");
@@ -52,6 +55,41 @@ export default function Roadmap() {
       setActiveNode(null);
     }
     setShowNotesModal(false);
+  };
+
+  // Opens the attachments modal for a given node
+  const openAttachments = (node) => {
+    setActiveNode(node);
+    setActiveAttachments(node.attachments || []); // Load existing attachments or initialize an empty array
+    setShowAttachmentsModal(true);
+  };
+
+  // Saves a new attachment link to the active node
+  const saveAttachment = () => {
+    if (!attachments.trim()) {
+      alert("Please enter a valid link.");
+      return;
+    }
+    const updatedNodes = nodes.map((n) =>
+      n.id === activeNode.id
+        ? { ...n, attachments: [...(n.attachments || []), attachments] }
+        : n
+    );
+    setNodes(updatedNodes);
+    setAttachments(""); // Clear the input field
+    setActiveAttachments([...activeAttachments, attachments]); // Update the local list
+  };
+
+  // Deletes an attachment link from the active node
+  const deleteAttachment = (index) => {
+    const updatedAttachments = activeAttachments.filter((_, i) => i !== index);
+    const updatedNodes = nodes.map((n) =>
+      n.id === activeNode.id
+        ? { ...n, attachments: updatedAttachments }
+        : n
+    );
+    setNodes(updatedNodes);
+    setActiveAttachments(updatedAttachments);
   };
 
   // A simple vertical arrow component.
@@ -102,7 +140,10 @@ export default function Roadmap() {
                   >
                     Notes
                   </Button>
-                  <Button className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md">
+                  <Button 
+                    onClick={() => openAttachments(node)} 
+                    className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
+                  >
                     Attachments
                   </Button>
                 </div>
@@ -210,6 +251,88 @@ export default function Roadmap() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Modal for editing attachments */}
+<AnimatePresence>
+  {showAttachmentsModal && (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+    >
+      <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700">
+        <h2 className="text-lg font-semibold mb-2">Add Attachments</h2>
+        <input
+          type="text"
+          value={attachments}
+          onChange={(e) => setAttachments(e.target.value)}
+          className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
+          placeholder="Enter link..."
+        />
+        <div className="flex justify-end gap-2">
+          <Button 
+            onClick={() => setShowAttachmentsModal(false)} 
+            className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={saveAttachment} 
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+          >
+            Add
+          </Button>
+        </div>
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold mb-2">Attachments:</h3>
+          <ul className="list-disc list-inside text-gray-400 space-y-2">
+            {activeAttachments.map((link, index) => {
+              const formattedLink = link.startsWith("http://") || link.startsWith("https://")
+                ? link
+                : `https://${link}`;
+              return (
+                <li
+                  key={index}
+                  className="flex justify-between items-center bg-gray-700 p-2 rounded-lg"
+                >
+                  <a
+                    href={formattedLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline break-all"
+                  >
+                    {link}
+                  </a>
+                  <Button
+                    onClick={() => deleteAttachment(index)}
+                    className="bg-transparent hover:bg-red-700 p-1 rounded-full text-xs text-red-600 hover:text-white"
+                    aria-label="Delete attachment"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
     </div>
   );
 }
