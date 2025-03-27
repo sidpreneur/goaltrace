@@ -13,6 +13,7 @@ export default function Register() {
         e.preventDefault();
         setMessage("");
 
+        // 🔹 Sign up the user with Supabase Auth
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -26,22 +27,24 @@ export default function Register() {
             return;
         }
 
-        if (data) {
-            setMessage("Successfully registered! ✅");
+        if (data?.user) {
+            const { user } = data;
 
-            const { error: dbError } = await supabase.from("users").insert([
+            // 🔹 Now insert into db_user with Supabase Auth ID
+            const { error: dbError } = await supabase.from("db_user").insert([
                 { 
+                    user_id: user.id,  // ✅ Store Auth user_id in db_user
                     name: name,
                     email: email
                 }
             ]);
-        
+
             if (dbError) {
                 setMessage("Error saving user data: " + dbError.message);
                 return;
             }
 
-            // ✅ Automatically log in after registration
+            // 🔹 Auto-login after registration
             const { error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
@@ -52,7 +55,7 @@ export default function Register() {
                 return;
             }
 
-            navigate("/home"); // ✅ Redirect after signup
+            navigate("/home"); // ✅ Redirect to home after successful registration
         }
 
         setEmail("");

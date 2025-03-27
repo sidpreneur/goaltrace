@@ -11,13 +11,11 @@ export const AuthProvider = ({ children }) => {
             const { data } = await supabase.auth.getSession();
 
             if (data?.session) {
-                const {
-                    user: { email, user_metadata },
-                } = data.session;
-
+                const { user } = data.session;
                 setUser({
-                    email,
-                    name: user_metadata?.name || "User",
+                    id: user.id,  // Store user ID
+                    email: user.email,
+                    name: user.user_metadata?.name || "User",
                 });
             }
         };
@@ -28,10 +26,11 @@ export const AuthProvider = ({ children }) => {
         const { data: authListener } = supabase.auth.onAuthStateChange(
             async (event, session) => {
                 if (session) {
-                    const { email, user_metadata } = session.user;
+                    const { user } = session;
                     setUser({
-                        email,
-                        name: user_metadata?.name || "User",
+                        id: user.id,  // Store user ID
+                        email: user.email,
+                        name: user.user_metadata?.name || "User",
                     });
                 } else {
                     setUser(null);
