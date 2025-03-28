@@ -65,23 +65,101 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
   };
 
   // Opens the notes modal for a given node.
-  const openNotes = (node) => {
-    setActiveNode(node);
-    setNotes(node.notes);
-    setShowNotesModal(true);
+  const openNotes = async (node) => {
+    try {
+      const { data: existingNote, error } = await supabase
+        .from("notes")
+        .select("notes_id, content")
+        .eq("node_id", node.node_id)  // Make sure this matches your node identifier
+        .maybeSingle();
+  
+      if (error) {
+        console.error("Error fetching note:", error);
+      }
+  
+      if (existingNote) {
+        console.log("Fetched note:", existingNote);  // For debugging
+        setNotes(existingNote.content || "");
+        setActiveNode({ ...node, notes_id: existingNote.notes_id });
+      } else {
+        setNotes("");
+        setActiveNode(node);
+      }
+  
+      setShowNotesModal(true);
+    } catch (error) {
+      console.error("Unexpected error in openNotes:", error);
+      setNotes("");
+      setActiveNode(node);
+      setShowNotesModal(true);
+    }
   };
+  
+  
+  
 
   // Saves the edited notes back to the corresponding node.
-  const saveNotes = () => {
-    if (activeNode) {
-      const updatedNodes = nodes.map((n) =>
-        n.id === activeNode.id ? { ...n, notes } : n
-      );
+  const saveNotes = async () => {
+    if (!activeNode) {
+      alert("No active node selected.");
+      return;
+    }
+  
+    try {
+      let updatedNodes;
+  
+      // If we already have a notes_id, do an UPDATE
+      if (activeNode.notes_id) {
+        const { error } = await supabase
+          .from("notes")
+          .update({
+            content: notes,
+            created_at: new Date().toISOString(),
+          })
+          .eq("notes_id", activeNode.notes_id);
+  
+        if (error) throw error;
+  
+        // Update the node’s content in local state
+        updatedNodes = nodes.map((n) =>
+          n.id === activeNode.id ? { ...n, notes } : n
+        );
+      } else {
+        // No notes_id => we INSERT a new row
+        const { data, error } = await supabase
+          .from("notes")
+          .insert([
+            {
+              node_id: activeNode.id,
+              content: notes,
+              created_at: new Date().toISOString(),
+            },
+          ])
+          .select("notes_id")
+          .single();
+  
+        if (error) throw error;
+  
+        // Now we have a notes_id, store it in the node so we can update next time
+        updatedNodes = nodes.map((n) =>
+          n.id === activeNode.id
+            ? { ...n, notes_id: data.notes_id, notes }
+            : n
+        );
+      }
+  
+      // Update state and close the modal
       setNodes(updatedNodes);
       setActiveNode(null);
+      setShowNotesModal(false);
+    } catch (error) {
+      console.error("Error saving notes:", error.message, error.details, error.hint);
+      alert("An error occurred while saving the notes. Please try again.");
     }
-    setShowNotesModal(false);
   };
+  
+  
+  
 
   // Opens the attachments modal for a given node
   const openAttachments = (node) => {
@@ -257,11 +335,12 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700">
               <h2 className="text-lg font-semibold mb-2">Edit Notes</h2>
               <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
-                placeholder="Enter notes..."
-              ></textarea>
+  value={notes}
+  onChange={(e) => setNotes(e.target.value)}
+  className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
+  placeholder="Enter notes..."
+></textarea>
+
               <div className="flex justify-end gap-2">
                 <Button
                   onClick={() => setShowNotesModal(false)}
@@ -291,7 +370,29 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
             transition={{ duration: 0.3, ease: "easeOut" }}
             className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
           >
-            <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700">
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700 relative">
+              {/* Cross Button */}
+              <button
+                onClick={() => setShowAttachmentsModal(false)}
+                className="absolute top-2 right-2 text-gray-400 hover:text-white focus:outline-none"
+                aria-label="Close"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+
               <h2 className="text-lg font-semibold mb-2">Add Attachments</h2>
               <input
                 type="text"
@@ -302,12 +403,6 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
               />
               <div className="flex justify-end gap-2">
                 <Button
-                  onClick={() => setShowAttachmentsModal(false)} // Save button closes the modal
-                  className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
-                >
-                  Save
-                </Button>
-                <Button
                   onClick={saveAttachment} // Add button saves the attachment but keeps the modal open
                   className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
                 >
@@ -317,7 +412,7 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
               <div className="mt-4">
                 <h3 className="text-sm font-semibold mb-2">Attachments:</h3>
                 <ul
-                  className="list-disc list-inside text-gray-400 space-y-2 overflow-y-auto max-h-40" // Add scrollbar
+                  className="list-disc list-inside text-gray-400 space-y-2 overflow-y-auto max-h-40"
                 >
                   {activeAttachments.map((link, index) => {
                     const formattedLink =
