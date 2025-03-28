@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { supabase } from "../helper/supabaseClient"; // Ensure Supabase client is imported
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function Roadmap() {
+export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [nodes, setNodes] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [newHeading, setNewHeading] = useState("");
@@ -11,44 +12,69 @@ export default function Roadmap() {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [activeNode, setActiveNode] = useState(null);
   const [notes, setNotes] = useState("");
-  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false); 
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [attachments, setAttachments] = useState("");
   const [activeAttachments, setActiveAttachments] = useState([]);
+
   // Opens the modal to add a new node.
   const addNode = () => {
     setShowModal(true);
   };
 
-  // Saves a new node if both heading and description are provided.
-  const saveNode = () => {
+  // Saves a new node to the Supabase database
+  const saveNode = async () => {
     if (!newHeading.trim() || !newDescription.trim()) {
-      alert("Please enter both a node title and description.");
+      alert("Please enter both a node heading and description.");
       return;
     }
-    const newNode = { 
-      id: nodes.length + 1, 
-      heading: newHeading, 
-      description: newDescription, 
-      notes: "", 
-      attachments: [] // Initialize attachments
+
+    if (!traceId) {
+      alert("Trace ID is missing. Please save the trace first.");
+      return;
+    }
+
+    const newNode = {
+      trace_id: traceId, // Use the traceId passed as a prop
+      heading: newHeading,
+      description: newDescription,
+      position: nodes.length + 1, // Set position as the next available position
+      created_at: new Date().toISOString(),
     };
-    setNodes([...nodes, newNode]);
-    setNewHeading("");
-    setNewDescription("");
-    setShowModal(false);
+
+    try {
+      // Insert the new node into the nodes table
+      const { data, error } = await supabase
+        .from("nodes") // Use the correct table name
+        .insert([newNode])
+        .select("*")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      // Update the local state with the saved node
+      setNodes([...nodes, { ...data, id: data.node_id }]);
+      setNewHeading("");
+      setNewDescription("");
+      setShowModal(false);
+    } catch (error) {
+      console.error("Error saving node:", error.message, error.details, error.hint);
+      alert("An error occurred while saving the node. Please try again.");
+    }
   };
 
   // Opens the notes modal for a given node.
   const openNotes = (node) => {
     setActiveNode(node);
-    setNotes(node.notes); //lololololoo
+    setNotes(node.notes);
     setShowNotesModal(true);
   };
 
   // Saves the edited notes back to the corresponding node.
   const saveNotes = () => {
     if (activeNode) {
-      const updatedNodes = nodes.map(n =>
+      const updatedNodes = nodes.map((n) =>
         n.id === activeNode.id ? { ...n, notes } : n
       );
       setNodes(updatedNodes);
@@ -60,7 +86,7 @@ export default function Roadmap() {
   // Opens the attachments modal for a given node
   const openAttachments = (node) => {
     setActiveNode(node);
-    setActiveAttachments(node.attachments || []); // Load existing attachments or initialize an empty array
+    setActiveAttachments(node.attachments || []);
     setShowAttachmentsModal(true);
   };
 
@@ -70,14 +96,17 @@ export default function Roadmap() {
       alert("Please enter a valid link.");
       return;
     }
+
     const updatedNodes = nodes.map((n) =>
       n.id === activeNode.id
         ? { ...n, attachments: [...(n.attachments || []), attachments] }
         : n
     );
+
     setNodes(updatedNodes);
-    setAttachments(""); // Clear the input field
-    setActiveAttachments([...activeAttachments, attachments]); // Update the local list
+    setAttachments("");
+    setActiveAttachments([...activeAttachments, attachments]);
+    // Do NOT close the modal here
   };
 
   // Deletes an attachment link from the active node
@@ -94,7 +123,7 @@ export default function Roadmap() {
 
   // A simple vertical arrow component.
   const VerticalArrow = () => (
-    <motion.div 
+    <motion.div
       className="flex justify-center py-6 text-gray-500"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -134,14 +163,14 @@ export default function Roadmap() {
                   <p className="text-gray-400 text-sm mt-2 italic">{node.description}</p>
                 </div>
                 <div className="flex justify-center gap-2 p-3">
-                  <Button 
-                    onClick={() => openNotes(node)} 
+                  <Button
+                    onClick={() => openNotes(node)}
                     className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
                   >
                     Notes
                   </Button>
-                  <Button 
-                    onClick={() => openAttachments(node)} 
+                  <Button
+                    onClick={() => openAttachments(node)}
                     className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
                   >
                     Attachments
@@ -157,14 +186,14 @@ export default function Roadmap() {
         })}
       </AnimatePresence>
 
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.8 }} 
-        animate={{ opacity: 1, scale: 1 }} 
-        transition={{ duration: 0.3, ease: "easeOut" }} 
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
         className="mt-6"
       >
-        <Button 
-          className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg shadow-lg" 
+        <Button
+          className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg shadow-lg"
           onClick={addNode}
         >
           Add Node
@@ -188,7 +217,7 @@ export default function Roadmap() {
                 value={newHeading}
                 onChange={(e) => setNewHeading(e.target.value)}
                 className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
-                placeholder="Node title..."
+                placeholder="Node heading..."
               />
               <textarea
                 value={newDescription}
@@ -197,14 +226,14 @@ export default function Roadmap() {
                 placeholder="What is it about?"
               ></textarea>
               <div className="flex justify-end gap-2">
-                <Button 
-                  onClick={() => setShowModal(false)} 
+                <Button
+                  onClick={() => setShowModal(false)}
                   className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
                 >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={saveNode} 
+                <Button
+                  onClick={saveNode}
                   className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
                 >
                   Save
@@ -234,14 +263,14 @@ export default function Roadmap() {
                 placeholder="Enter notes..."
               ></textarea>
               <div className="flex justify-end gap-2">
-                <Button 
-                  onClick={() => setShowNotesModal(false)} 
+                <Button
+                  onClick={() => setShowNotesModal(false)}
                   className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
                 >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={saveNotes} 
+                <Button
+                  onClick={saveNotes}
                   className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
                 >
                   Save
@@ -251,88 +280,92 @@ export default function Roadmap() {
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* Modal for editing attachments */}
-<AnimatePresence>
-  {showAttachmentsModal && (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700">
-        <h2 className="text-lg font-semibold mb-2">Add Attachments</h2>
-        <input
-          type="text"
-          value={attachments}
-          onChange={(e) => setAttachments(e.target.value)}
-          className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
-          placeholder="Enter link..."
-        />
-        <div className="flex justify-end gap-2">
-          <Button 
-            onClick={() => setShowAttachmentsModal(false)} 
-            className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
+      <AnimatePresence>
+        {showAttachmentsModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
           >
-            Cancel
-          </Button>
-          <Button 
-            onClick={saveAttachment} 
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
-          >
-            Add
-          </Button>
-        </div>
-        <div className="mt-4">
-          <h3 className="text-sm font-semibold mb-2">Attachments:</h3>
-          <ul className="list-disc list-inside text-gray-400 space-y-2">
-            {activeAttachments.map((link, index) => {
-              const formattedLink = link.startsWith("http://") || link.startsWith("https://")
-                ? link
-                : `https://${link}`;
-              return (
-                <li
-                  key={index}
-                  className="flex justify-between items-center bg-gray-700 p-2 rounded-lg"
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700">
+              <h2 className="text-lg font-semibold mb-2">Add Attachments</h2>
+              <input
+                type="text"
+                value={attachments}
+                onChange={(e) => setAttachments(e.target.value)}
+                className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
+                placeholder="Enter link..."
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  onClick={() => setShowAttachmentsModal(false)} // Save button closes the modal
+                  className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg"
                 >
-                  <a
-                    href={formattedLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline break-all"
-                  >
-                    {link}
-                  </a>
-                  <Button
-                    onClick={() => deleteAttachment(index)}
-                    className="bg-transparent hover:bg-red-700 p-1 rounded-full text-xs text-red-600 hover:text-white"
-                    aria-label="Delete attachment"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
-    </motion.div>
-  )}
-</AnimatePresence>
+                  Save
+                </Button>
+                <Button
+                  onClick={saveAttachment} // Add button saves the attachment but keeps the modal open
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+                >
+                  Add
+                </Button>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-semibold mb-2">Attachments:</h3>
+                <ul
+                  className="list-disc list-inside text-gray-400 space-y-2 overflow-y-auto max-h-40" // Add scrollbar
+                >
+                  {activeAttachments.map((link, index) => {
+                    const formattedLink =
+                      link.startsWith("http://") || link.startsWith("https://")
+                        ? link
+                        : `https://${link}`;
+                    return (
+                      <li
+                        key={index}
+                        className="flex justify-between items-center bg-gray-700 p-2 rounded-lg"
+                      >
+                        <a
+                          href={formattedLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:underline break-all"
+                        >
+                          {link}
+                        </a>
+                        <Button
+                          onClick={() => deleteAttachment(index)}
+                          className="bg-transparent hover:bg-red-700 p-1 rounded-full text-xs text-red-600 hover:text-white"
+                          aria-label="Delete attachment"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
