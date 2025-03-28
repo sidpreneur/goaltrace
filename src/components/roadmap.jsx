@@ -161,43 +161,94 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
   
   
 
-  // Opens the attachments modal for a given node
-  const openAttachments = (node) => {
-    setActiveNode(node);
-    setActiveAttachments(node.attachments || []);
-    setShowAttachmentsModal(true);
-  };
+// Opens the attachments modal and fetches existing attachments from the database.
+const openAttachments = async (node) => {
+  try {
+    // Fetch all attachments for the given node
+    const { data: existingAttachments, error } = await supabase
+      .from("attachments")
+      .select("attachment_id, file_url")
+      .eq("node_id", node.node_id) // assuming node.id is your node identifier
+      .order("uploaded_at", { ascending: true });
 
-  // Saves a new attachment link to the active node
-  const saveAttachment = () => {
-    if (!attachments.trim()) {
-      alert("Please enter a valid link.");
-      return;
+    if (error) {
+      console.error("Error fetching attachments:", error);
+      setActiveAttachments([]);
+    } else {
+      // Set the fetched attachments in state.
+      setActiveAttachments(existingAttachments);
+    }
+    // Set the active node and show the modal.
+    setActiveNode(node);
+    setShowAttachmentsModal(true);
+  } catch (error) {
+    console.error("Unexpected error fetching attachments:", error);
+    setActiveAttachments([]);
+    setActiveNode(node);
+    setShowAttachmentsModal(true);
+  }
+};
+
+// Inserts a new attachment into the attachments table.
+const saveAttachment = async () => {
+  if (!attachments.trim()) {
+    alert("Please enter a valid link.");
+    return;
+  }
+  try {
+    // Insert a new attachment record for the active node
+    const { data, error } = await supabase
+      .from("attachments")
+      .insert([
+        {
+          node_id: activeNode.node_id,
+          file_url: attachments,
+          uploaded_at: new Date().toISOString(),
+        },
+      ])
+      .select("attachment_id, file_url")
+      .single();
+
+    if (error) {
+      throw error;
     }
 
-    const updatedNodes = nodes.map((n) =>
-      n.id === activeNode.id
-        ? { ...n, attachments: [...(n.attachments || []), attachments] }
-        : n
-    );
-
-    setNodes(updatedNodes);
+    // Update the activeAttachments state with the newly inserted record.
+    setActiveAttachments([...activeAttachments, data]);
+    // Clear the input field.
     setAttachments("");
-    setActiveAttachments([...activeAttachments, attachments]);
-    // Do NOT close the modal here
-  };
+  } catch (error) {
+    console.error("Error saving attachment:", error.message);
+    alert("An error occurred while saving the attachment. Please try again.");
+  }
+};
 
-  // Deletes an attachment link from the active node
-  const deleteAttachment = (index) => {
+// Deletes an attachment record from the attachments table.
+const deleteAttachment = async (index) => {
+  try {
+    const attachmentToDelete = activeAttachments[index];
+    if (!attachmentToDelete) return;
+
+    // Delete the attachment using its attachment_id
+    const { error } = await supabase
+      .from("attachments")
+      .delete()
+      .eq("attachment_id", attachmentToDelete.attachment_id);
+
+    if (error) {
+      throw error;
+    }
+
+    // Remove the deleted attachment from state
     const updatedAttachments = activeAttachments.filter((_, i) => i !== index);
-    const updatedNodes = nodes.map((n) =>
-      n.id === activeNode.id
-        ? { ...n, attachments: updatedAttachments }
-        : n
-    );
-    setNodes(updatedNodes);
     setActiveAttachments(updatedAttachments);
-  };
+  } catch (error) {
+    console.error("Error deleting attachment:", error.message);
+    alert("An error occurred while deleting the attachment. Please try again.");
+  }
+};
+
+
 
   // A simple vertical arrow component.
   const VerticalArrow = () => (
@@ -411,51 +462,36 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
               </div>
               <div className="mt-4">
                 <h3 className="text-sm font-semibold mb-2">Attachments:</h3>
-                <ul
-                  className="list-disc list-inside text-gray-400 space-y-2 overflow-y-auto max-h-40"
-                >
-                  {activeAttachments.map((link, index) => {
-                    const formattedLink =
-                      link.startsWith("http://") || link.startsWith("https://")
-                        ? link
-                        : `https://${link}`;
-                    return (
-                      <li
-                        key={index}
-                        className="flex justify-between items-center bg-gray-700 p-2 rounded-lg"
-                      >
-                        <a
-                          href={formattedLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:underline break-all"
-                        >
-                          {link}
-                        </a>
-                        <Button
-                          onClick={() => deleteAttachment(index)}
-                          className="bg-transparent hover:bg-red-700 p-1 rounded-full text-xs text-red-600 hover:text-white"
-                          aria-label="Delete attachment"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <ul className="list-disc list-inside text-gray-400 space-y-2 overflow-y-auto max-h-40">
+  {activeAttachments.map((attachment, index) => {
+    const formattedLink =
+      attachment.file_url.startsWith("http://") || attachment.file_url.startsWith("https://")
+        ? attachment.file_url
+        : `https://${attachment.file_url}`;
+    return (
+      <li key={attachment.attachment_id} className="flex justify-between items-center bg-gray-700 p-2 rounded-lg">
+        <a
+          href={formattedLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:underline break-all"
+        >
+          {attachment.file_url}
+        </a>
+        <Button
+          onClick={() => deleteAttachment(index)}
+          className="bg-transparent hover:bg-red-700 p-1 rounded-full text-xs text-red-600 hover:text-white"
+          aria-label="Delete attachment"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </Button>
+      </li>
+    );
+  })}
+</ul>
+
               </div>
             </div>
           </motion.div>
