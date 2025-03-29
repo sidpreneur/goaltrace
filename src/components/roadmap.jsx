@@ -373,7 +373,7 @@ const deleteAttachment = async (index) => {
 
 
 
-        <div className="border-b border-gray-600 text-center pb-3">
+        <div className="border-b border-gray-600 text-center pb-3 mt-5">
           <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 text-transparent bg-clip-text">
             {node.heading}
           </h3>
