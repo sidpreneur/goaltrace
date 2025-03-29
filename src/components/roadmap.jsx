@@ -363,10 +363,14 @@ const deleteAttachment = async (index) => {
   >
     <span className="sr-only">Status: {getStatusText(node.status)}</span>
   </button>
-  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute right-full top-1/2 transform -translate-y-1/2 mr-2 z-10 px-2 py-1 text-xs text-white bg-gray-800 rounded pointer-events-none whitespace-nowrap">
+  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute left-10 top-0 z-10 px-2 py-1 text-xs text-white bg-gray-800 rounded pointer-events-none whitespace-nowrap">
     {getStatusText(node.status)}
   </div>
 </div>
+
+
+
+
 
 
 
