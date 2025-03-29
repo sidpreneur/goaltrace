@@ -14,7 +14,7 @@ export default function Newtrace() {
   const [tag, setTag] = useState("");
   const [showModal, setShowModal] = useState(true);
   const [saved, setSaved] = useState(false);
-  const [traceId, setTraceId] = useState(null); // Add state to store trace_id
+  const [traceId, setTraceId] = useState(null); // Store trace_id
 
   const saveDetails = async () => {
     if (!title.trim() || !tag.trim()) {
@@ -26,10 +26,10 @@ export default function Newtrace() {
     const tagArray = tag.split(" ").filter((t) => t.trim().startsWith("#"));
 
     try {
-      // 🔹 Step 1: Insert the trace into the `traces` table
+      // Step 1: Insert the trace into the `traces` table
       const { data: traceData, error: traceError } = await supabase
         .from("traces")
-        .insert([{ user_id: user.id, title }]) // Assuming `user.id` is available
+        .insert([{ user_id: user.id, title }])
         .select("trace_id")
         .single();
 
@@ -42,11 +42,11 @@ export default function Newtrace() {
       const traceId = traceData.trace_id;
       setTraceId(traceId); // Save the trace_id in state
 
-      // 🔹 Step 2: Insert tags into the `tags` table (if they don't exist)
+      // Step 2: Insert tags into the `tags` table (if they don't exist)
       const tagInsertPromises = tagArray.map(async (tagName) => {
         const { data: tagData, error: tagError } = await supabase
           .from("tags")
-          .upsert({ name: tagName }, { onConflict: "name" }) // Avoid duplicates
+          .upsert({ name: tagName }, { onConflict: "name" })
           .select("tag_id")
           .single();
 
@@ -60,14 +60,14 @@ export default function Newtrace() {
 
       const tagIds = await Promise.all(tagInsertPromises);
 
-      // 🔹 Step 3: Insert associations into the `trace_tags` table
+      // Step 3: Insert associations into the `trace_tags` table
       const traceTagInsertPromises = tagIds.map((tagId) => {
         return supabase.from("trace_tags").insert([{ trace_id: traceId, tag_id: tagId }]);
       });
 
       await Promise.all(traceTagInsertPromises);
 
-      // 🔹 Success: Update UI state
+      // Success: Update UI state
       setSaved(true);
       setShowModal(false);
       alert("Trace saved successfully!");
@@ -79,11 +79,14 @@ export default function Newtrace() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
-      <div className="fixed top-0 left-0 right-0 z-50">
+      {/* Navbar */}
+      <div className="md:fixed md:top-0 md:left-0 md:right-0 z-50">
         <Navbar />
       </div>
 
-      <div className="fixed left-6 top-24 z-10">
+      {/* Saved Trace Card */}
+      {/* For md and larger screens */}
+      <div className="hidden md:block md:fixed md:left-6 md:top-24 z-10">
         {saved && (
           <SavedTraceCard
             title={title}
@@ -91,10 +94,22 @@ export default function Newtrace() {
           />
         )}
       </div>
-      <div className="min-h-screen flex flex-col justify-center items-center overflow-hidden pt-16">
-        <Roadmap traceId={traceId} /> {/* Pass traceId to Roadmap */}
+      {/* For mobile/tablet: center the card */}
+      <div className="block md:hidden mt-16 flex justify-center px-4">
+        {saved && (
+          <SavedTraceCard
+            title={title}
+            tags={tag.split(" ").filter((t) => t.trim().startsWith("#"))}
+          />
+        )}
       </div>
 
+      {/* Roadmap */}
+      <div className="min-h-screen flex flex-col justify-center items-center overflow-hidden pt-16 md:pt-24">
+        <Roadmap traceId={traceId} />
+      </div>
+
+      {/* Modal for new trace details */}
       <AnimatePresence>
         {showModal && (
           <motion.div
