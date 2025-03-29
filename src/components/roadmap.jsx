@@ -34,12 +34,14 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
     }
 
     const newNode = {
-      trace_id: traceId, // Use the traceId passed as a prop
+      trace_id: traceId,
       heading: newHeading,
       description: newDescription,
-      position: nodes.length + 1, // Set position as the next available position
+      position: nodes.length + 1,
       created_at: new Date().toISOString(),
+      status: "red"  // default status is red
     };
+    
 
     try {
       // Insert the new node into the nodes table
@@ -63,6 +65,64 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
       alert("An error occurred while saving the node. Please try again.");
     }
   };
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case "red":
+        return "bg-red-500 border-red-600 border-2";
+      case "yellow":
+        return "bg-yellow-500 border-yellow-600 border-2";
+      case "green":
+        return "bg-green-500 border-green-600 border-2";
+      default:
+        return "bg-red-500 border-red-600 border-2";
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case "green":
+        return "Done";
+      case "yellow":
+        return "In Progress";
+      case "red":
+        return "Not Started";
+      default:
+        return "Not Started";
+    }
+  };
+  
+  
+
+  const statuses = ["red", "yellow", "green"];
+
+const toggleStatus = async (node) => {
+  // Get the current status (default to red if undefined)
+  const currentStatus = node.status || "red";
+  const currentIndex = statuses.indexOf(currentStatus);
+  const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+
+  try {
+    // Update the node's status in Supabase.
+    const { error } = await supabase
+      .from("nodes")
+      .update({ status: nextStatus })
+      .eq("node_id", node.id);  // Make sure this matches your schema
+
+    if (error) throw error;
+
+    // Update local state to reflect the new status.
+    const updatedNodes = nodes.map((n) =>
+      n.id === node.id ? { ...n, status: nextStatus } : n
+    );
+    setNodes(updatedNodes);
+  } catch (error) {
+    console.error("Error updating status:", error.message);
+    alert("Failed to update status");
+  }
+};
+
+  
 
   // Opens the notes modal for a given node.
   const openNotes = async (node) => {
@@ -273,46 +333,75 @@ const deleteAttachment = async (index) => {
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-900 text-white p-6">
       <AnimatePresence>
-        {nodes.map((node, nodeIndex) => {
-          const isLastNode = nodeIndex === nodes.length - 1;
-          return (
-            <motion.div
-              key={node.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className="flex flex-col items-center w-full"
-            >
-              <Card className="w-80 bg-gray-800 text-white shadow-lg border border-gray-700 rounded-xl p-4 relative">
-                <div className="border-b border-gray-600 text-center pb-3">
-                  <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 text-transparent bg-clip-text">
-                    {node.heading}
-                  </h3>
-                  <p className="text-gray-400 text-sm mt-2 italic">{node.description}</p>
-                </div>
-                <div className="flex justify-center gap-2 p-3">
-                  <Button
-                    onClick={() => openNotes(node)}
-                    className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
-                  >
-                    Notes
-                  </Button>
-                  <Button
-                    onClick={() => openAttachments(node)}
-                    className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
-                  >
-                    Attachments
-                  </Button>
-                </div>
-                <CardContent className="p-4">
-                  {/* The node notes are not displayed here */}
-                </CardContent>
-              </Card>
-              {!isLastNode && <VerticalArrow />}
-            </motion.div>
-          );
-        })}
+      {nodes.map((node, nodeIndex) => {
+  const isLastNode = nodeIndex === nodes.length - 1;
+  return (
+    <motion.div
+      key={node.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="flex flex-col items-center w-full relative"  // note: relative for absolute children
+    >
+      <Card className="w-80 bg-gray-800 text-white shadow-lg border border-gray-700 rounded-xl p-4 relative">
+        {/* 3D status button in top left */}
+        <div className="group relative">
+  <button
+    onClick={() => toggleStatus(node)}
+    className={`absolute top-0 left-0 w-6 h-6 rounded-full 
+      ${getStatusStyle(node.status)} 
+      transform hover:scale-110 active:scale-95
+      transition-all duration-150
+      shadow-md hover:shadow-lg
+      flex items-center justify-center
+      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400`}
+    aria-label={`Update status: ${getStatusText(node.status)}`}
+    style={{
+      boxShadow: '0 2px 4px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.3)'
+    }}
+  >
+    <span className="sr-only">Status: {getStatusText(node.status)}</span>
+  </button>
+  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute right-full top-1/2 transform -translate-y-1/2 mr-2 z-10 px-2 py-1 text-xs text-white bg-gray-800 rounded pointer-events-none whitespace-nowrap">
+    {getStatusText(node.status)}
+  </div>
+</div>
+
+
+
+
+
+
+        <div className="border-b border-gray-600 text-center pb-3">
+          <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 text-transparent bg-clip-text">
+            {node.heading}
+          </h3>
+          <p className="text-gray-400 text-sm mt-2 italic">{node.description}</p>
+        </div>
+        <div className="flex justify-center gap-2 p-3">
+          <Button
+            onClick={() => openNotes(node)}
+            className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
+          >
+            Notes
+          </Button>
+          <Button
+            onClick={() => openAttachments(node)}
+            className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
+          >
+            Attachments
+          </Button>
+        </div>
+        <CardContent className="p-4">
+          {/* The node notes are not displayed here */}
+        </CardContent>
+      </Card>
+      {!isLastNode && <VerticalArrow />}
+    </motion.div>
+  );
+})}
+
       </AnimatePresence>
 
       <motion.div
