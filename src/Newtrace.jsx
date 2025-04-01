@@ -95,7 +95,7 @@ export default function Newtrace() {
         )}
       </div>
       {/* For mobile/tablet: center the card */}
-      <div className="block md:hidden mt-16 flex justify-center px-4">
+      <div className="md:hidden mt-16 flex justify-center px-4">
         {saved && (
           <SavedTraceCard
             title={title}
