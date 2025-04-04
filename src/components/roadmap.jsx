@@ -13,9 +13,9 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [activeNode, setActiveNode] = useState(null);
   const [notes, setNotes] = useState("");
-  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
-  const [attachments, setAttachments] = useState("");
-  const [activeAttachments, setActiveAttachments] = useState([]);
+  const [showlinksModal, setShowlinksModal] = useState(false);
+  const [links, setlinks] = useState("");
+  const [activelinks, setActivelinks] = useState([]);
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [deadline, setDeadline] = useState("");
 
@@ -319,90 +319,90 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
     }
   };
   
-  // Opens the attachments modal and fetches existing attachments from the database.
-  const openAttachments = async (node) => {
+  // Opens the links modal and fetches existing links from the database.
+  const openlinks = async (node) => {
     try {
-      // Fetch all attachments for the given node
-      const { data: existingAttachments, error } = await supabase
-        .from("attachments")
-        .select("attachment_id, file_url")
+      // Fetch all links for the given node
+      const { data: existinglinks, error } = await supabase
+        .from("links")
+        .select("links_id, file_url")
         .eq("node_id", node.node_id) // assuming node.id is your node identifier
         .order("uploaded_at", { ascending: true });
 
       if (error) {
-        console.error("Error fetching attachments:", error);
-        setActiveAttachments([]);
+        console.error("Error fetching links:", error);
+        setActivelinks([]);
       } else {
-        // Set the fetched attachments in state.
-        setActiveAttachments(existingAttachments);
+        // Set the fetched links in state.
+        setActivelinks(existinglinks);
       }
       // Set the active node and show the modal.
       setActiveNode(node);
-      setShowAttachmentsModal(true);
+      setShowlinksModal(true);
     } catch (error) {
-      console.error("Unexpected error fetching attachments:", error);
-      setActiveAttachments([]);
+      console.error("Unexpected error fetching links:", error);
+      setActivelinks([]);
       setActiveNode(node);
-      setShowAttachmentsModal(true);
+      setShowlinksModal(true);
     }
   };
 
-  // Inserts a new attachment into the attachments table.
-  const saveAttachment = async () => {
-    if (!attachments.trim()) {
+  // Inserts a new links into the links table.
+  const savelinks = async () => {
+    if (!links.trim()) {
       alert("Please enter a valid link.");
       return;
     }
     try {
-      // Insert a new attachment record for the active node
+      // Insert a new links record for the active node
       const { data, error } = await supabase
-        .from("attachments")
+        .from("links")
         .insert([
           {
             node_id: activeNode.node_id,
-            file_url: attachments,
+            file_url: links,
             uploaded_at: new Date().toISOString(),
           },
         ])
-        .select("attachment_id, file_url")
+        .select("links_id, file_url")
         .single();
 
       if (error) {
         throw error;
       }
 
-      // Update the activeAttachments state with the newly inserted record.
-      setActiveAttachments([...activeAttachments, data]);
+      // Update the activelinks state with the newly inserted record.
+      setActivelinks([...activelinks, data]);
       // Clear the input field.
-      setAttachments("");
+      setlinks("");
     } catch (error) {
-      console.error("Error saving attachment:", error.message);
-      alert("An error occurred while saving the attachment. Please try again.");
+      console.error("Error saving links:", error.message);
+      alert("An error occurred while saving the links. Please try again.");
     }
   };
 
-  // Deletes an attachment record from the attachments table.
-  const deleteAttachment = async (index) => {
+  // Deletes an links record from the links table.
+  const deletelinks = async (index) => {
     try {
-      const attachmentToDelete = activeAttachments[index];
-      if (!attachmentToDelete) return;
+      const linksToDelete = activelinks[index];
+      if (!linksToDelete) return;
 
-      // Delete the attachment using its attachment_id
+      // Delete the links using its links_id
       const { error } = await supabase
-        .from("attachments")
+        .from("links")
         .delete()
-        .eq("attachment_id", attachmentToDelete.attachment_id);
+        .eq("links_id", linksToDelete.links_id);
 
       if (error) {
         throw error;
       }
 
-      // Remove the deleted attachment from state
-      const updatedAttachments = activeAttachments.filter((_, i) => i !== index);
-      setActiveAttachments(updatedAttachments);
+      // Remove the deleted links from state
+      const updatedlinks = activelinks.filter((_, i) => i !== index);
+      setActivelinks(updatedlinks);
     } catch (error) {
-      console.error("Error deleting attachment:", error.message);
-      alert("An error occurred while deleting the attachment. Please try again.");
+      console.error("Error deleting links:", error.message);
+      alert("An error occurred while deleting the links. Please try again.");
     }
   };
 
@@ -517,10 +517,10 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
                   Notes
                 </Button>
                 <Button
-                  onClick={() => openAttachments(node)}
+                  onClick={() => openlinks(node)}
                   className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
                 >
-                  Attachments
+                  links
                 </Button>
                 <Button
                   onClick={() => openDeadline(node)}
@@ -682,9 +682,9 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
         )}
       </AnimatePresence>
 
-      {/* Modal for editing attachments */}
+      {/* Modal for editing links */}
       <AnimatePresence>
-        {showAttachmentsModal && (
+        {showlinksModal && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -695,7 +695,7 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700 relative">
               {/* Cross Button */}
               <button
-                onClick={() => setShowAttachmentsModal(false)}
+                onClick={() => setShowlinksModal(false)}
                 className="absolute top-2 right-2 text-gray-400 hover:text-white focus:outline-none"
                 aria-label="Close"
               >
@@ -715,44 +715,44 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
                 </svg>
               </button>
 
-              <h2 className="text-lg font-semibold mb-2">Add Attachments</h2>
+              <h2 className="text-lg font-semibold mb-2">Add links</h2>
               <input
                 type="text"
-                value={attachments}
-                onChange={(e) => setAttachments(e.target.value)}
+                value={links}
+                onChange={(e) => setlinks(e.target.value)}
                 className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
                 placeholder="Enter link..."
               />
               <div className="flex justify-end gap-2">
                 <Button
-                  onClick={saveAttachment} // Add button saves the attachment but keeps the modal open
+                  onClick={savelinks} // Add button saves the links but keeps the modal open
                   className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
                 >
                   Add
                 </Button>
               </div>
               <div className="mt-4">
-                <h3 className="text-sm font-semibold mb-2">Attachments:</h3>
+                <h3 className="text-sm font-semibold mb-2">links:</h3>
                 <ul className="list-disc list-inside text-gray-400 space-y-2 overflow-y-auto max-h-40">
-                  {activeAttachments.map((attachment, index) => {
+                  {activelinks.map((links, index) => {
                     const formattedLink =
-                      attachment.file_url.startsWith("http://") || attachment.file_url.startsWith("https://")
-                        ? attachment.file_url
-                        : `https://${attachment.file_url}`;
+                      links.file_url.startsWith("http://") || links.file_url.startsWith("https://")
+                        ? links.file_url
+                        : `https://${links.file_url}`;
                     return (
-                      <li key={attachment.attachment_id} className="flex justify-between items-center bg-gray-700 p-2 rounded-lg">
+                      <li key={links.links_id} className="flex justify-between items-center bg-gray-700 p-2 rounded-lg">
                         <a
                           href={formattedLink}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:underline break-all"
                         >
-                          {attachment.file_url}
+                          {links.file_url}
                         </a>
                         <Button
-                          onClick={() => deleteAttachment(index)}
+                          onClick={() => deletelinks(index)}
                           className="bg-transparent hover:bg-red-700 p-1 rounded-full text-xs text-red-600 hover:text-white"
-                          aria-label="Delete attachment"
+                          aria-label="Delete links"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
