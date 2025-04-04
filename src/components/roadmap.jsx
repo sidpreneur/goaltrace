@@ -18,6 +18,9 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [activelinks, setActivelinks] = useState([]);
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [deadline, setDeadline] = useState("");
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
+  const [attachments, setAttachments] = useState("");
+  const [activeAttachments, setActiveAttachments] = useState([]);
 
   // Opens the modal to add a new node.
   const addNode = () => {
@@ -527,6 +530,12 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
                   className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
                 >
                   Deadline
+                </Button>
+                <Button
+                  onClick={() => setShowAttachmentsModal(true)}
+                  className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
+                >
+                  Attachments
                 </Button>
               </div>
               <CardContent className="p-4">
