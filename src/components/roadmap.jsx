@@ -520,7 +520,7 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
                   onClick={() => openlinks(node)}
                   className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
                 >
-                  links
+                  Links
                 </Button>
                 <Button
                   onClick={() => openDeadline(node)}
@@ -651,7 +651,7 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+            transition={{ duration: 0.3 }}
             className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
           >
             <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700">
