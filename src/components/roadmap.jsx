@@ -3,6 +3,7 @@ import { supabase } from "../helper/supabaseClient"; // Ensure Supabase client i
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRef } from "react";
 
 export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [nodes, setNodes] = useState([]);
@@ -18,9 +19,13 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [activelinks, setActivelinks] = useState([]);
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [deadline, setDeadline] = useState("");
-  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
-  const [attachments, setAttachments] = useState("");
-  const [activeAttachments, setActiveAttachments] = useState([]);
+  // States for attachments modal
+const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
+const [selectedFile, setSelectedFile] = useState(null);
+const [activeAttachments, setActiveAttachments] = useState([]);
+
+
+
 
   // Opens the modal to add a new node.
   const addNode = () => {
@@ -447,6 +452,105 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
     </motion.div>
   );
 
+ // Fetches all attachments for the active node from the attachments table.
+const fetchAttachments = async () => {
+  if (!activeNode?.node_id) return;
+
+  const { data, error } = await supabase
+    .from('attachments')
+    .select('*')
+    .eq('node_id', activeNode.node_id);
+
+  if (error) {
+    console.error("Fetch attachments error:", error);
+    return;
+  }
+
+  setActiveAttachments(data);
+};
+
+const fileInputRef = useRef(null);
+
+// Trigger the file dialog if no file is selected.
+const handleUploadAttachment = async (e) => {
+  e.preventDefault();
+
+  // ✅ Check if user is authenticated
+  const { data: userData, error: authError } = await supabase.auth.getUser();
+  if (authError || !userData?.user) {
+    console.error("User not authenticated:", authError);
+    alert("You're not logged in. Please sign in to upload files.");
+    return;
+  }
+
+  if (!selectedFile) {
+    if (fileInputRef.current) fileInputRef.current.click();
+    return;
+  }
+
+  if (!activeNode?.node_id) {
+    alert("Active node is not set.");
+    return;
+  }
+
+  const uniqueFileName = `${Date.now()}-${selectedFile.name}`;
+  const filePath = `${activeNode.node_id}/${uniqueFileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("attachments-bucket")
+    .upload(filePath, selectedFile, { upsert: true });
+
+  if (uploadError) {
+    console.error("Upload error:", uploadError);
+    alert("File upload failed.");
+    return;
+  }
+
+  const { data: publicUrlData, error: urlError } = supabase
+    .storage
+    .from("attachments-bucket")
+    .getPublicUrl(filePath);
+
+  if (urlError || !publicUrlData?.publicUrl) {
+    console.error("URL generation error:", urlError);
+    alert("Failed to retrieve file URL.");
+    return;
+  }
+
+  const { error: insertError } = await supabase
+    .from("attachments")
+    .insert([
+      {
+        attachment_id: crypto.randomUUID(),
+        node_id: activeNode.node_id,
+        file_name: filePath,
+        file_url: publicUrlData.publicUrl,
+        file_type: selectedFile.type,
+        file_size: selectedFile.size,
+        uploaded_at: new Date().toISOString()
+      }
+    ]);
+
+  if (insertError) {
+    console.error("DB insert error:", insertError);
+    alert("Failed to save file metadata.");
+    return;
+  }
+
+  console.log("Record inserted into attachments table successfully!");
+  fetchAttachments();
+  setSelectedFile(null);
+};
+
+const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    console.log("Selected File:", file);
+    setSelectedFile(file);
+  }
+};
+
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-900 text-white p-6">
       <AnimatePresence>
@@ -532,11 +636,18 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
                   Deadline
                 </Button>
                 <Button
-                  onClick={() => setShowAttachmentsModal(true)}
-                  className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
-                >
-                  Attachments
-                </Button>
+  onClick={() => {
+    // Make sure you set the active node for which attachments will be loaded.
+    // For example, if you want to use the same node for notes and attachments:
+    setActiveNode(node);
+    fetchAttachments(); // fetch attachments for the active node
+    setShowAttachmentsModal(true);
+  }}
+  className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
+>
+  Attachments
+</Button>
+
               </div>
               <CardContent className="p-4">
                 {/* The node notes are not displayed here */}
@@ -776,6 +887,97 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
           </motion.div>
         )}
       </AnimatePresence>
+      <AnimatePresence>
+  {showAttachmentsModal && (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+    >
+      <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-white border border-gray-700 relative">
+        {/* Close Button */}
+        <button
+          onClick={() => setShowAttachmentsModal(false)}
+          className="absolute top-2 right-2 text-gray-400 hover:text-white focus:outline-none"
+          aria-label="Close"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <h2 className="text-lg font-semibold mb-4">Upload Attachment</h2>
+
+        {/* Hidden file input triggered by the button */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+
+        {/* 👇 Show file name if selected */}
+        {selectedFile && (
+          <p className="text-sm text-green-400 mb-2 break-all">
+            Selected: {selectedFile.name}
+          </p>
+        )}
+
+        {/* 👇 Trigger file picker manually */}
+        <div className="flex justify-end gap-2 mb-4">
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded"
+          >
+            Choose File
+          </Button>
+
+          <Button
+            onClick={handleUploadAttachment}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+          >
+            Upload
+          </Button>
+        </div>
+
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold mb-2">Uploaded Files:</h3>
+          <ul className="space-y-2 max-h-40 overflow-y-auto text-gray-300 text-sm">
+            {activeAttachments.map((att) => (
+              <li key={att.attachment_id} className="bg-gray-700 p-2 rounded flex justify-between items-center">
+                <a
+                  href={getPublicUrl(att)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:underline break-all"
+                >
+                  {att.file_name.split('/').pop()}
+                </a>
+                <Button
+                  onClick={() => deleteAttachment(att.attachment_id)}
+                  className="bg-transparent text-red-500 hover:text-white p-1"
+                  aria-label="Delete attachment"
+                >
+                  ✕
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
     </div>
   );
 }
