@@ -26,6 +26,8 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [selectedFile, setSelectedFile] = useState(null);
   const [activeAttachments, setActiveAttachments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isFetchingAttachments, setIsFetchingAttachments] = useState(false);
+
 
 
 
@@ -461,12 +463,33 @@ console.log("user_id (frontend):", user?.id);
 console.log("auth.uid() (SQL): will match:", user?.id);
 
 
+const fetchAttachmentsForNode = async (node) => {
+  setIsFetchingAttachments(true);
+  setActiveAttachments([]); // Clear previous attachments
+
+  const { data, error } = await supabase
+    .from('attachments')
+    .select('*')
+    .eq('node_id', node.node_id);
+
+  if (error) {
+    console.error("Fetch attachments error:", error);
+    setIsFetchingAttachments(false);
+    return;
+  }
+
+  setActiveAttachments(data);
+  setIsFetchingAttachments(false);
+};
 
 
 // Fetches all attachments for the active node from the attachments table.
 const fetchAttachments = async () => {
   if (!activeNode?.node_id) return;
-
+  setIsFetchingAttachments(true);  // Start loading
+  // Optionally clear previous attachments
+  setActiveAttachments([]);
+  
   const { data, error } = await supabase
     .from('attachments')
     .select('*')
@@ -474,10 +497,12 @@ const fetchAttachments = async () => {
 
   if (error) {
     console.error("Fetch attachments error:", error);
+    setIsFetchingAttachments(false);
     return;
   }
 
   setActiveAttachments(data);
+  setIsFetchingAttachments(false); // Stop loading
 };
 
 const fileInputRef = useRef(null);
@@ -679,18 +704,22 @@ const deleteAttachment = async (attachmentId, filePath) => {
                 >
                   Deadline
                 </Button>
+                
                 <Button
   onClick={() => {
-    // Make sure you set the active node for which attachments will be loaded.
-    // For example, if you want to use the same node for notes and attachments:
-    setActiveNode(node);
-    fetchAttachments(); // fetch attachments for the active node
+    // Open the modal first
     setShowAttachmentsModal(true);
+    // Pass the current node to fetch attachments
+    fetchAttachmentsForNode(node);
+    // Optionally update activeNode if you need it elsewhere
+    setActiveNode(node);
   }}
   className="bg-gray-700 hover:bg-gray-600 rounded-full px-5 py-1 text-xs font-medium shadow-md"
 >
   Attachments
 </Button>
+
+
 
               </div>
               <CardContent className="p-4">
@@ -969,14 +998,14 @@ const deleteAttachment = async (attachmentId, filePath) => {
           className="hidden"
         />
 
-        {/* 👇 Show file name if selected */}
+        {/* Show file name if selected */}
         {selectedFile && (
           <p className="text-sm text-green-400 mb-2 break-all">
             Selected: {selectedFile.name}
           </p>
         )}
 
-        {/* 👇 Trigger file picker manually */}
+        {/* Trigger file picker manually */}
         <div className="flex justify-end gap-2 mb-4">
           {isUploading ? (
             <div className="flex items-center gap-2">
@@ -1023,33 +1052,58 @@ const deleteAttachment = async (attachmentId, filePath) => {
 
         <div className="mt-6">
           <h3 className="text-sm font-semibold mb-2">Uploaded Files:</h3>
-          <ul className="space-y-2 max-h-40 overflow-y-auto text-gray-300 text-sm">
-            {activeAttachments.map((att) => (
-              <li key={att.attachment_id} className="bg-gray-700 p-2 rounded flex justify-between items-center">
-                <a
-  href={
-    supabase.storage
-      .from("attachments-bucket")
-      .getPublicUrl(att.file_name).data.publicUrl
-  }
-  target="_blank"
-  rel="noopener noreferrer"
-  className="text-blue-400 hover:underline break-all"
->
-  {att.file_name.split('/').pop()}
-</a>
+          {isFetchingAttachments ? (
+            <div className="flex items-center justify-center">
+              <svg
+                className="animate-spin h-5 w-5 text-blue-600 mr-2"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8H4z"
+                ></path>
+              </svg>
+              <span className="text-blue-400 text-sm">Loading attachments...</span>
+            </div>
+          ) : (
+            <ul className="space-y-2 max-h-40 overflow-y-auto text-gray-300 text-sm">
+              {activeAttachments.map((att) => (
+                <li key={att.attachment_id} className="bg-gray-700 p-2 rounded flex justify-between items-center">
+                  <a
+                    href={
+                      supabase.storage
+                        .from("attachments-bucket")
+                        .getPublicUrl(att.file_name).data.publicUrl
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline break-all"
+                  >
+                    {att.file_name.split('/').pop()}
+                  </a>
 
-<Button
-  onClick={() => deleteAttachment(att.attachment_id, att.file_name)}
-  className="bg-transparent text-red-500 hover:text-white p-1"
-  aria-label="Delete attachment"
->
-  ✕
-</Button>
-
-              </li>
-            ))}
-          </ul>
+                  <Button
+                    onClick={() => deleteAttachment(att.attachment_id, att.file_name)}
+                    className="bg-transparent text-red-500 hover:text-white p-1"
+                    aria-label="Delete attachment"
+                  >
+                    ✕
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </motion.div>
