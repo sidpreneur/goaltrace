@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRef } from "react";
+import { useAuth } from "../context/AuthContext"; // adjust path as needed
+
 
 export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [nodes, setNodes] = useState([]);
@@ -452,7 +454,15 @@ const [activeAttachments, setActiveAttachments] = useState([]);
     </motion.div>
   );
 
- // Fetches all attachments for the active node from the attachments table.
+// Inside your component
+const { user } = useAuth(); // ✅ get the current user
+console.log("user_id (frontend):", user?.id);
+console.log("auth.uid() (SQL): will match:", user?.id);
+
+
+
+
+// Fetches all attachments for the active node from the attachments table.
 const fetchAttachments = async () => {
   if (!activeNode?.node_id) return;
 
@@ -475,10 +485,17 @@ const fileInputRef = useRef(null);
 const handleUploadAttachment = async (e) => {
   e.preventDefault();
 
-  // ✅ Check if user is authenticated
   const { data: userData, error: authError } = await supabase.auth.getUser();
-  if (authError || !userData?.user) {
-    console.error("User not authenticated:", authError);
+if (authError || !userData?.user) {
+  console.error("User not authenticated:", authError);
+  alert("You're not logged in. Please sign in to upload files.");
+  return;
+}
+console.log("User fetched from getUser():", userData.user.id);
+
+
+  // ✅ Use context user
+  if (!user) {
     alert("You're not logged in. Please sign in to upload files.");
     return;
   }
@@ -493,8 +510,11 @@ const handleUploadAttachment = async (e) => {
     return;
   }
 
-  const uniqueFileName = `${Date.now()}-${selectedFile.name}`;
-  const filePath = `${activeNode.node_id}/${uniqueFileName}`;
+const sanitizedFileName = selectedFile.name.replace(/[^\w.\-]/g, '_');
+const uniqueFileName = `${Date.now()}-${sanitizedFileName}`;
+
+  const filePath = `${user.id}/${activeNode.node_id}/${uniqueFileName}`;
+
 
   const { error: uploadError } = await supabase.storage
     .from("attachments-bucket")
@@ -527,7 +547,8 @@ const handleUploadAttachment = async (e) => {
         file_url: publicUrlData.publicUrl,
         file_type: selectedFile.type,
         file_size: selectedFile.size,
-        uploaded_at: new Date().toISOString()
+        uploaded_at: new Date().toISOString(),
+        user_id: user.id // ✅ FROM CONTEXT
       }
     ]);
 
@@ -537,7 +558,7 @@ const handleUploadAttachment = async (e) => {
     return;
   }
 
-  console.log("Record inserted into attachments table successfully!");
+  console.log("✅ Record inserted into attachments table successfully!");
   fetchAttachments();
   setSelectedFile(null);
 };
