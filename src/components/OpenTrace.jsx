@@ -64,7 +64,7 @@ const StatusSelector = ({ currentStatus, onSelect }) => {
   );
 };
 
-// Modal component for displaying links and notes
+// Modal component for displaying links, notes, and attachments
 const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
@@ -100,6 +100,8 @@ const OpenTrace = () => {
   const [editForm, setEditForm] = useState({});
   const [traceInfo, setTraceInfo] = useState(null);
   const [showTraceModal, setShowTraceModal] = useState(false);
+  const [nodeAttachments, setNodeAttachments] = useState({});
+
   // State for trace editing
   const [editingTrace, setEditingTrace] = useState(false);
   const [traceEditForm, setTraceEditForm] = useState({
@@ -110,11 +112,14 @@ const OpenTrace = () => {
   // State for links and notes
   const [showLinksModal, setShowLinksModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [currentNodeId, setCurrentNodeId] = useState(null);
   const [links, setLinks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   // State for adding links and notes
   const [newLink, setNewLink] = useState("");
@@ -140,6 +145,121 @@ const OpenTrace = () => {
       console.error(err);
       setErrorMsg("Failed to load nodes.");
       return [];
+    }
+  };
+
+  // Fetch attachments for a specific node
+  const fetchAttachments = async (nodeId) => {
+    setLoadingAttachments(true);
+    try {
+      const { data, error } = await supabase
+        .from("attachments")
+        .select("*")
+        .eq("node_id", nodeId)
+        .order("uploaded_at", { ascending: false });
+
+      if (error) throw error;
+      
+      setNodeAttachments(prev => ({
+        ...prev,
+        [nodeId]: data || []
+      }));
+      
+      return data;
+    } catch (err) {
+      console.error("Failed to fetch attachments:", err);
+      return [];
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  // Handle file upload for attachments
+  const handleFileUpload = async (file, nodeId) => {
+    if (!file || !nodeId) return;
+    
+    setUploadingFile(true);
+    try {
+      // Generate unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${nodeId}/${fileName}`;
+      
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('attachments')
+        .upload(filePath, file);
+        
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('attachments')
+        .getPublicUrl(filePath);
+      
+      // Add record to attachments table
+      const { data, error } = await supabase
+        .from("attachments")
+        .insert({
+          node_id: nodeId,
+          file_url: publicUrl,
+          uploaded_at: new Date().toISOString(),
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          // Assuming user_id is available in your app context
+          user_id: "current_user_id" // Replace with actual user ID
+        })
+        .select();
+        
+      if (error) throw error;
+      
+      // Update state with new attachment
+      setNodeAttachments(prev => ({
+        ...prev,
+        [nodeId]: [...(prev[nodeId] || []), data[0]]
+      }));
+      
+      return data[0];
+    } catch (err) {
+      console.error("Failed to upload file:", err);
+      alert("Failed to upload file. Please try again.");
+      return null;
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  // Delete an attachment
+  const deleteAttachment = async (attachmentId, nodeId, filePath) => {
+    if (!window.confirm("Delete this attachment?")) return;
+
+    try {
+      // Delete from Supabase Storage if filePath is provided
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('attachments')
+          .remove([filePath]);
+          
+        if (storageError) console.error("Storage delete error:", storageError);
+      }
+      
+      // Delete from attachments table
+      const { error } = await supabase
+        .from("attachments")
+        .delete()
+        .eq("attachment_id", attachmentId);
+
+      if (error) throw error;
+      
+      // Update state
+      setNodeAttachments(prev => ({
+        ...prev,
+        [nodeId]: prev[nodeId].filter(attachment => attachment.attachment_id !== attachmentId)
+      }));
+    } catch (err) {
+      console.error("Failed to delete attachment:", err);
+      alert("Failed to delete attachment. Please try again.");
     }
   };
 
@@ -281,6 +401,13 @@ const OpenTrace = () => {
     setShowNotesModal(true);
   };
 
+  // Handle opening attachments modal
+  const handleOpenAttachments = (nodeId) => {
+    setCurrentNodeId(nodeId);
+    fetchAttachments(nodeId);
+    setShowAttachmentsModal(true);
+  };
+
   useEffect(() => {
     if (!traceId) return setErrorMsg("Invalid trace ID.");
     (async () => {
@@ -320,6 +447,15 @@ const OpenTrace = () => {
       setLoading(false);
     })();
   }, [traceId]);
+
+  // Fetch initial attachments for all nodes
+  useEffect(() => {
+    if (traceDetails.length > 0) {
+      traceDetails.forEach(node => {
+        fetchAttachments(node.node_id);
+      });
+    }
+  }, [traceDetails]);
 
   const handleEdit = (node) => {
     setEditingNode(node.node_id);
@@ -679,9 +815,7 @@ const OpenTrace = () => {
                         </button>
                         <button
                           className="bg-[#8F79BE] text-white px-3 py-2 rounded-lg hover:opacity-90"
-                          onClick={() =>
-                            navigate(`/attachments/${node.node_id}`)
-                          }
+                          onClick={() => handleOpenAttachments(node.node_id)}
                         >
                           Attachments
                         </button>
@@ -729,38 +863,37 @@ const OpenTrace = () => {
             </button>
           </div>
         </div>
-
         {loadingLinks ? (
-          <p className="text-center text-gray-400">Loading links...</p>
-        ) : links.length === 0 ? (
-          <p className="text-center text-gray-400">No links found for this node.</p>
+          <p className="text-gray-400 text-center">Loading links...</p>
         ) : (
-          <div className="space-y-3">
-            {links.map((link) => (
-              <div key={link.links_id} className="bg-gray-700 p-3 rounded flex justify-between items-center">
-                <a
-                  href={link.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:underline truncate flex-1"
+          <div className="space-y-2">
+            {links.length > 0 ? (
+              links.map((link) => (
+                <div
+                  key={link.links_id}
+                  className="flex items-center justify-between bg-gray-700 p-2 rounded"
                 >
-                  {link.file_url}
-                </a>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">
-                    {new Date(link.uploaded_at).toLocaleDateString()}
-                  </span>
+                  <a
+                    href={link.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline truncate"
+                  >
+                    {link.file_url}
+                  </a>
                   <button
                     onClick={() => deleteLink(link.links_id)}
-                    className="text-red-400 hover:text-red-300"
+                    className="text-red-400 hover:text-red-500"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </button>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-gray-400 text-center">No links found.</p>
+            )}
           </div>
         )}
       </Modal>
@@ -775,44 +908,119 @@ const OpenTrace = () => {
           <div className="flex flex-col gap-2">
             <textarea
               placeholder="Add new note"
-              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 min-h-24"
+              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
+              rows={4}
             />
             <button
               onClick={addNote}
-              className="bg-[#8F79BE] text-white px-3 py-2 rounded hover:opacity-90 self-end"
+              className="bg-[#8F79BE] text-white px-3 py-2 rounded hover:opacity-90"
             >
               Add Note
             </button>
           </div>
         </div>
-
         {loadingNotes ? (
-          <p className="text-center text-gray-400">Loading notes...</p>
-        ) : notes.length === 0 ? (
-          <p className="text-center text-gray-400">No notes found for this node.</p>
+          <p className="text-gray-400 text-center">Loading notes...</p>
         ) : (
-          <div className="space-y-4">
-            {notes.map((note) => (
-              <div key={note.notes_id} className="bg-gray-700 p-3 rounded">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-xs text-gray-400">
-                    {new Date(note.created_at).toLocaleDateString()}{" "}
-                    {new Date(note.created_at).toLocaleTimeString()}
-                  </span>
+          <div className="space-y-3">
+            {notes.length > 0 ? (
+              notes.map((note) => (
+                <div
+                  key={note.notes_id}
+                  className="bg-gray-700 p-3 rounded"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="text-xs text-gray-400">
+                      {new Date(note.created_at).toLocaleString()}
+                    </p>
+                    <button
+                      onClick={() => deleteNote(note.notes_id)}
+                      className="text-red-400 hover:text-red-500"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-white whitespace-pre-wrap">{note.content}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-400 text-center">No notes found.</p>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Attachments Modal */}
+      <Modal
+        isOpen={showAttachmentsModal}
+        onClose={() => setShowAttachmentsModal(false)}
+        title="Attachments"
+      >
+        <div className="mb-4">
+          <div className="flex flex-col gap-2">
+            <input
+              type="file"
+              id="file-upload"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleFileUpload(e.target.files[0], currentNodeId);
+                }
+              }}
+            />
+            <label
+              htmlFor="file-upload"
+              className="bg-[#8F79BE] text-white px-3 py-2 rounded text-center cursor-pointer hover:opacity-90"
+            >
+              {uploadingFile ? "Uploading..." : "Upload File"}
+            </label>
+          </div>
+        </div>
+        {loadingAttachments ? (
+          <p className="text-gray-400 text-center">Loading attachments...</p>
+        ) : (
+          <div className="space-y-2">
+            {nodeAttachments[currentNodeId]?.length > 0 ? (
+              nodeAttachments[currentNodeId].map((attachment) => (
+                <div
+                  key={attachment.attachment_id}
+                  className="flex items-center justify-between bg-gray-700 p-2 rounded"
+                >
+                  <div className="flex items-center space-x-2 truncate">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                    <a
+                      href={attachment.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:underline truncate"
+                    >
+                      {attachment.file_name || "File"}
+                      {attachment.file_size && (
+                        <span className="text-xs text-gray-400 ml-2">
+                          {(attachment.file_size / 1024).toFixed(1)} KB
+                        </span>
+                      )}
+                    </a>
+                  </div>
                   <button
-                    onClick={() => deleteNote(note.notes_id)}
-                    className="text-red-400 hover:text-red-300"
+                    onClick={() => deleteAttachment(attachment.attachment_id, currentNodeId, attachment.file_path)}
+                    className="text-red-400 hover:text-red-500 ml-2"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </button>
                 </div>
-                <p className="text-white whitespace-pre-wrap break-words">{note.content}</p>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-gray-400 text-center">No attachments found.</p>
+            )}
           </div>
         )}
       </Modal>
