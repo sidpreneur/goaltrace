@@ -64,6 +64,32 @@ const StatusSelector = ({ currentStatus, onSelect }) => {
   );
 };
 
+// Modal component for displaying links and notes
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-blue-400">{title}</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const OpenTrace = () => {
   const { traceId } = useParams();
   const navigate = useNavigate();
@@ -74,6 +100,25 @@ const OpenTrace = () => {
   const [editForm, setEditForm] = useState({});
   const [traceInfo, setTraceInfo] = useState(null);
   const [showTraceModal, setShowTraceModal] = useState(false);
+  // State for trace editing
+  const [editingTrace, setEditingTrace] = useState(false);
+  const [traceEditForm, setTraceEditForm] = useState({
+    title: "",
+    tags: "",
+  });
+
+  // State for links and notes
+  const [showLinksModal, setShowLinksModal] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [currentNodeId, setCurrentNodeId] = useState(null);
+  const [links, setLinks] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+
+  // State for adding links and notes
+  const [newLink, setNewLink] = useState("");
+  const [newNote, setNewNote] = useState("");
 
   const fetchTraceDetails = async (trace_id) => {
     try {
@@ -98,6 +143,144 @@ const OpenTrace = () => {
     }
   };
 
+  // Fetch links for a specific node
+  const fetchLinks = async (nodeId) => {
+    setLoadingLinks(true);
+    try {
+      const { data, error } = await supabase
+        .from("links")
+        .select("*")
+        .eq("node_id", nodeId)
+        .order("uploaded_at", { ascending: false });
+
+      if (error) throw error;
+      setLinks(data || []);
+      return data;
+    } catch (err) {
+      console.error("Failed to fetch links:", err);
+      return [];
+    } finally {
+      setLoadingLinks(false);
+    }
+  };
+
+  // Fetch notes for a specific node
+  const fetchNotes = async (nodeId) => {
+    setLoadingNotes(true);
+    try {
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("node_id", nodeId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setNotes(data || []);
+      return data;
+    } catch (err) {
+      console.error("Failed to fetch notes:", err);
+      return [];
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  // Add a new link
+  const addLink = async () => {
+    if (!newLink.trim() || !currentNodeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("links")
+        .insert({
+          node_id: currentNodeId,
+          file_url: newLink.trim(),
+          uploaded_at: new Date().toISOString()
+        })
+        .select();
+
+      if (error) throw error;
+      setLinks([data[0], ...links]);
+      setNewLink("");
+    } catch (err) {
+      console.error("Failed to add link:", err);
+      alert("Failed to add link. Please try again.");
+    }
+  };
+
+  // Add a new note
+  const addNote = async () => {
+    if (!newNote.trim() || !currentNodeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("notes")
+        .insert({
+          node_id: currentNodeId,
+          content: newNote.trim(),
+          created_at: new Date().toISOString()
+        })
+        .select();
+
+      if (error) throw error;
+      setNotes([data[0], ...notes]);
+      setNewNote("");
+    } catch (err) {
+      console.error("Failed to add note:", err);
+      alert("Failed to add note. Please try again.");
+    }
+  };
+
+  // Delete a link
+  const deleteLink = async (linkId) => {
+    if (!window.confirm("Delete this link?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("links")
+        .delete()
+        .eq("links_id", linkId);
+
+      if (error) throw error;
+      setLinks(links.filter(link => link.links_id !== linkId));
+    } catch (err) {
+      console.error("Failed to delete link:", err);
+      alert("Failed to delete link. Please try again.");
+    }
+  };
+
+  // Delete a note
+  const deleteNote = async (noteId) => {
+    if (!window.confirm("Delete this note?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("notes")
+        .delete()
+        .eq("notes_id", noteId);
+
+      if (error) throw error;
+      setNotes(notes.filter(note => note.notes_id !== noteId));
+    } catch (err) {
+      console.error("Failed to delete note:", err);
+      alert("Failed to delete note. Please try again.");
+    }
+  };
+
+  // Handle opening links modal
+  const handleOpenLinks = (nodeId) => {
+    setCurrentNodeId(nodeId);
+    fetchLinks(nodeId);
+    setShowLinksModal(true);
+  };
+
+  // Handle opening notes modal
+  const handleOpenNotes = (nodeId) => {
+    setCurrentNodeId(nodeId);
+    fetchNotes(nodeId);
+    setShowNotesModal(true);
+  };
+
   useEffect(() => {
     if (!traceId) return setErrorMsg("Invalid trace ID.");
     (async () => {
@@ -112,7 +295,8 @@ const OpenTrace = () => {
           trace_tags (
             tag_id,
             tags (
-              name
+              name,
+              tag_id
             )
           )
         `)
@@ -125,6 +309,11 @@ const OpenTrace = () => {
         const traceTags = trace.trace_tags || [];
         const tagNames = traceTags.map((tt) => tt.tags?.name).filter(Boolean);
         setTraceInfo({ ...trace, tags: tagNames });
+        // Initialize trace edit form
+        setTraceEditForm({
+          title: trace.title || "Untitled Trace",
+          tags: tagNames.join(", "),
+        });
       }
 
       setTraceDetails(details);
@@ -181,6 +370,88 @@ const OpenTrace = () => {
     }
   };
 
+  // Handle saving trace edits
+  const handleSaveTraceEdit = async () => {
+    try {
+      // Update trace title
+      await supabase
+        .from("traces")
+        .update({ title: traceEditForm.title })
+        .eq("trace_id", traceId);
+
+      // Fetch existing tags for this trace
+      const { data: existingTraceTags } = await supabase
+        .from("trace_tags")
+        .select("tag_id")
+        .eq("trace_id", traceId);
+
+      // Remove existing tag associations
+      await supabase
+        .from("trace_tags")
+        .delete()
+        .eq("trace_id", traceId);
+
+      // Parse and add new tags
+      const newTagNames = traceEditForm.tags
+        .split(",")
+        .map(tag => tag.trim())
+        .filter(tag => tag);
+
+      for (const tagName of newTagNames) {
+        // Check if tag already exists
+        let { data: existingTag } = await supabase
+          .from("tags")
+          .select("tag_id")
+          .eq("name", tagName)
+          .maybeSingle();
+
+        let tagId;
+        if (existingTag) {
+          tagId = existingTag.tag_id;
+        } else {
+          // Create new tag
+          const { data: newTag } = await supabase
+            .from("tags")
+            .insert({ name: tagName })
+            .select("tag_id")
+            .single();
+          tagId = newTag.tag_id;
+        }
+
+        // Create association
+        await supabase
+          .from("trace_tags")
+          .insert({ trace_id: traceId, tag_id: tagId });
+      }
+
+      // Refresh trace info
+      const { data: updatedTrace } = await supabase
+        .from("traces")
+        .select(`
+          title,
+          trace_id,
+          trace_tags (
+            tag_id,
+            tags (
+              name
+            )
+          )
+        `)
+        .eq("trace_id", traceId)
+        .single();
+
+      const updatedTagNames = (updatedTrace.trace_tags || [])
+        .map(tt => tt.tags?.name)
+        .filter(Boolean);
+
+      setTraceInfo({ ...updatedTrace, tags: updatedTagNames });
+      setEditingTrace(false);
+    } catch (err) {
+      console.error("Failed to update trace:", err);
+      setErrorMsg("Failed to save trace changes.");
+    }
+  };
+
   const handleDelete = async (node_id) => {
     if (!window.confirm("Delete this node?")) return;
     await supabase.from("nodes").delete().eq("node_id", node_id);
@@ -207,22 +478,82 @@ const OpenTrace = () => {
     </div>
   );
 
+  // Editable trace card component with clickable functionality
+  const EditableTraceCard = () => {
+    if (editingTrace) {
+      return (
+        <div className="bg-gray-800 p-4 rounded-lg shadow-lg w-72">
+          <div className="mb-2">
+            <label className="block text-gray-400 text-sm mb-1">Title</label>
+            <input
+              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+              type="text"
+              value={traceEditForm.title}
+              onChange={(e) => setTraceEditForm({ ...traceEditForm, title: e.target.value })}
+            />
+          </div>
+          <div className="mb-2">
+            <label className="block text-gray-400 text-sm mb-1">Tags (comma separated)</label>
+            <input
+              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+              type="text"
+              value={traceEditForm.tags}
+              placeholder="tag1, tag2, tag3"
+              onChange={(e) => setTraceEditForm({ ...traceEditForm, tags: e.target.value })}
+            />
+          </div>
+          <div className="flex justify-end mt-2">
+            <button
+              className="bg-gray-600 text-white px-2 py-1 rounded text-xs mr-2 hover:bg-gray-700"
+              onClick={() => setEditingTrace(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="bg-[#8F79BE] text-white px-2 py-1 rounded text-xs hover:opacity-90"
+              onClick={handleSaveTraceEdit}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className="relative group w-64 cursor-pointer transition-transform duration-200 hover:scale-105"
+        onClick={() => setEditingTrace(true)}
+      >
+        <div className="w-full">
+          <SavedTraceCard
+            title={traceInfo?.title || "Untitled Trace"}
+            tags={Array.isArray(traceInfo?.tags) ? traceInfo.tags : []}
+          />
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <p className="text-center text-gray-400">Loading...</p>;
   if (errorMsg) return <p className="text-center text-red-500">{errorMsg}</p>;
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="max-w-4xl mx-auto p-6 relative">
-        {/* Position trace info card in top left corner with increased size */}
+        {/* Trace info card with edit functionality */}
         {traceInfo && (
-  <div className="hidden md:block md:fixed md:left-6 md:top-10 z-10">
-    <SavedTraceCard
-      title={traceInfo.title || "Untitled Trace"}
-      tags={Array.isArray(traceInfo.tags) ? traceInfo.tags : []}
-    />
-  </div>
-)}
+          <div className="hidden md:block md:fixed md:left-6 md:top-10 z-10">
+            <EditableTraceCard />
+          </div>
+        )}
 
+        {/* Mobile view for trace info */}
+        {traceInfo && (
+          <div className="md:hidden mb-6">
+            <EditableTraceCard />
+          </div>
+        )}
 
         <h1 className="text-5xl font-extrabold text-center mb-6 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
           Nodes
@@ -336,13 +667,13 @@ const OpenTrace = () => {
                         </button>
                         <button
                           className="bg-[#8F79BE] text-white px-3 py-2 rounded-lg hover:opacity-90"
-                          onClick={() => navigate(`/links/${node.node_id}`)}
+                          onClick={() => handleOpenLinks(node.node_id)}
                         >
                           Links
                         </button>
                         <button
                           className="bg-[#8F79BE] text-white px-3 py-2 rounded-lg hover:opacity-90"
-                          onClick={() => navigate(`/notes/${node.node_id}`)}
+                          onClick={() => handleOpenNotes(node.node_id)}
                         >
                           Notes
                         </button>
@@ -374,6 +705,117 @@ const OpenTrace = () => {
           </p>
         )}
       </div>
+
+      {/* Links Modal */}
+      <Modal
+        isOpen={showLinksModal}
+        onClose={() => setShowLinksModal(false)}
+        title="Links"
+      >
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Add new link URL"
+              className="flex-1 p-2 bg-gray-700 text-white rounded border border-gray-600"
+              value={newLink}
+              onChange={(e) => setNewLink(e.target.value)}
+            />
+            <button
+              onClick={addLink}
+              className="bg-[#8F79BE] text-white px-3 py-2 rounded hover:opacity-90"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        {loadingLinks ? (
+          <p className="text-center text-gray-400">Loading links...</p>
+        ) : links.length === 0 ? (
+          <p className="text-center text-gray-400">No links found for this node.</p>
+        ) : (
+          <div className="space-y-3">
+            {links.map((link) => (
+              <div key={link.links_id} className="bg-gray-700 p-3 rounded flex justify-between items-center">
+                <a
+                  href={link.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:underline truncate flex-1"
+                >
+                  {link.file_url}
+                </a>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
+                    {new Date(link.uploaded_at).toLocaleDateString()}
+                  </span>
+                  <button
+                    onClick={() => deleteLink(link.links_id)}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Notes Modal */}
+      <Modal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        title="Notes"
+      >
+        <div className="mb-4">
+          <div className="flex flex-col gap-2">
+            <textarea
+              placeholder="Add new note"
+              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 min-h-24"
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+            />
+            <button
+              onClick={addNote}
+              className="bg-[#8F79BE] text-white px-3 py-2 rounded hover:opacity-90 self-end"
+            >
+              Add Note
+            </button>
+          </div>
+        </div>
+
+        {loadingNotes ? (
+          <p className="text-center text-gray-400">Loading notes...</p>
+        ) : notes.length === 0 ? (
+          <p className="text-center text-gray-400">No notes found for this node.</p>
+        ) : (
+          <div className="space-y-4">
+            {notes.map((note) => (
+              <div key={note.notes_id} className="bg-gray-700 p-3 rounded">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-xs text-gray-400">
+                    {new Date(note.created_at).toLocaleDateString()}{" "}
+                    {new Date(note.created_at).toLocaleTimeString()}
+                  </span>
+                  <button
+                    onClick={() => deleteNote(note.notes_id)}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="text-white whitespace-pre-wrap break-words">{note.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
