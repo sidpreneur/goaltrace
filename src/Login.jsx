@@ -2,10 +2,12 @@ import { useState } from "react";
 import { supabase } from "./helper/supabaseClient";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [message, setMessage] = useState("");
     const navi = useNavigate();
     const { setUser } = useAuth();
@@ -48,13 +50,23 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full p-3 rounded-lg border border-blue-400 bg-gray-800 text-white focus:ring-2 focus:ring-blue-500"
                 />
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-3 rounded-lg border border-blue-400 bg-gray-800 text-white focus:ring-2 focus:ring-blue-500"
-                />
+                <div className="relative">
+                    <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full p-3 pr-10 rounded-lg border border-blue-400 bg-gray-800 text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="absolute inset-y-0 right-3 flex items-center text-blue-400"
+                        tabIndex={-1}
+                    >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                </div>
                 <button
                     type="submit"
                     className="w-full p-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition"
