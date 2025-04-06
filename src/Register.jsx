@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "./helper/supabaseClient";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react"; // Make sure you have lucide-react installed
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
     const [email, setEmail] = useState("");
@@ -92,11 +92,11 @@ export default function Register() {
                     />
                     <button
                         type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
+                        onClick={() => setShowPassword(prev => !prev)}
                         className="absolute inset-y-0 right-3 flex items-center text-blue-400"
-                        tabIndex={-1}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
                     >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
                     </button>
                 </div>
                 <button
