@@ -571,6 +571,36 @@ const handleFileUpload = (event) => {
   }
 };
 
+const deleteAttachment = async (attachmentId, filePath) => {
+  // 1. Delete from DB
+  const { error: dbError } = await supabase
+    .from("attachments")
+    .delete()
+    .eq("attachment_id", attachmentId);
+
+  if (dbError) {
+    console.error("Failed to delete from DB:", dbError);
+    alert("Error deleting from database.");
+    return;
+  }
+
+  // 2. Delete from storage
+  const { error: storageError } = await supabase
+    .storage
+    .from("attachments-bucket")
+    .remove([filePath]);
+
+  if (storageError) {
+    console.error("Failed to delete from Storage:", storageError);
+    alert("File metadata deleted, but file is still in storage.");
+    return;
+  }
+
+  console.log("✅ Attachment fully deleted (DB + storage)");
+  fetchAttachments();
+};
+
+
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-900 text-white p-6">
@@ -976,20 +1006,26 @@ const handleFileUpload = (event) => {
             {activeAttachments.map((att) => (
               <li key={att.attachment_id} className="bg-gray-700 p-2 rounded flex justify-between items-center">
                 <a
-                  href={getPublicUrl(att)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:underline break-all"
-                >
-                  {att.file_name.split('/').pop()}
-                </a>
-                <Button
-                  onClick={() => deleteAttachment(att.attachment_id)}
-                  className="bg-transparent text-red-500 hover:text-white p-1"
-                  aria-label="Delete attachment"
-                >
-                  ✕
-                </Button>
+  href={
+    supabase.storage
+      .from("attachments-bucket")
+      .getPublicUrl(att.file_name).data.publicUrl
+  }
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-blue-400 hover:underline break-all"
+>
+  {att.file_name.split('/').pop()}
+</a>
+
+<Button
+  onClick={() => deleteAttachment(att.attachment_id, att.file_name)}
+  className="bg-transparent text-red-500 hover:text-white p-1"
+  aria-label="Delete attachment"
+>
+  ✕
+</Button>
+
               </li>
             ))}
           </ul>
