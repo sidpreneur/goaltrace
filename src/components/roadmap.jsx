@@ -22,9 +22,10 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [deadline, setDeadline] = useState("");
   // States for attachments modal
-const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
-const [selectedFile, setSelectedFile] = useState(null);
-const [activeAttachments, setActiveAttachments] = useState([]);
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [activeAttachments, setActiveAttachments] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
 
 
 
@@ -485,21 +486,6 @@ const fileInputRef = useRef(null);
 const handleUploadAttachment = async (e) => {
   e.preventDefault();
 
-  const { data: userData, error: authError } = await supabase.auth.getUser();
-if (authError || !userData?.user) {
-  console.error("User not authenticated:", authError);
-  alert("You're not logged in. Please sign in to upload files.");
-  return;
-}
-console.log("User fetched from getUser():", userData.user.id);
-
-
-  // ✅ Use context user
-  if (!user) {
-    alert("You're not logged in. Please sign in to upload files.");
-    return;
-  }
-
   if (!selectedFile) {
     if (fileInputRef.current) fileInputRef.current.click();
     return;
@@ -510,57 +496,64 @@ console.log("User fetched from getUser():", userData.user.id);
     return;
   }
 
-const sanitizedFileName = selectedFile.name.replace(/[^\w.\-]/g, '_');
-const uniqueFileName = `${Date.now()}-${sanitizedFileName}`;
+  setIsUploading(true); // Start loading
 
+  const sanitizedFileName = selectedFile.name.replace(/[^\w.\-]/g, '_');
+  const uniqueFileName = `${Date.now()}-${sanitizedFileName}`;
   const filePath = `${user.id}/${activeNode.node_id}/${uniqueFileName}`;
 
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from("attachments-bucket")
+      .upload(filePath, selectedFile, { upsert: true });
 
-  const { error: uploadError } = await supabase.storage
-    .from("attachments-bucket")
-    .upload(filePath, selectedFile, { upsert: true });
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      alert("File upload failed.");
+      return;
+    }
 
-  if (uploadError) {
-    console.error("Upload error:", uploadError);
-    alert("File upload failed.");
-    return;
+    const { data: publicUrlData, error: urlError } = supabase
+      .storage
+      .from("attachments-bucket")
+      .getPublicUrl(filePath);
+
+    if (urlError || !publicUrlData?.publicUrl) {
+      console.error("URL generation error:", urlError);
+      alert("Failed to retrieve file URL.");
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("attachments")
+      .insert([
+        {
+          attachment_id: crypto.randomUUID(),
+          node_id: activeNode.node_id,
+          file_name: filePath,
+          file_url: publicUrlData.publicUrl,
+          file_type: selectedFile.type,
+          file_size: selectedFile.size,
+          uploaded_at: new Date().toISOString(),
+          user_id: user.id,
+        },
+      ]);
+
+    if (insertError) {
+      console.error("DB insert error:", insertError);
+      alert("Failed to save file metadata.");
+      return;
+    }
+
+    console.log("✅ Record inserted into attachments table successfully!");
+    fetchAttachments();
+    setSelectedFile(null);
+  } catch (error) {
+    console.error("Unexpected error during upload:", error);
+    alert("An unexpected error occurred.");
+  } finally {
+    setIsUploading(false); // Stop loading
   }
-
-  const { data: publicUrlData, error: urlError } = supabase
-    .storage
-    .from("attachments-bucket")
-    .getPublicUrl(filePath);
-
-  if (urlError || !publicUrlData?.publicUrl) {
-    console.error("URL generation error:", urlError);
-    alert("Failed to retrieve file URL.");
-    return;
-  }
-
-  const { error: insertError } = await supabase
-    .from("attachments")
-    .insert([
-      {
-        attachment_id: crypto.randomUUID(),
-        node_id: activeNode.node_id,
-        file_name: filePath,
-        file_url: publicUrlData.publicUrl,
-        file_type: selectedFile.type,
-        file_size: selectedFile.size,
-        uploaded_at: new Date().toISOString(),
-        user_id: user.id // ✅ FROM CONTEXT
-      }
-    ]);
-
-  if (insertError) {
-    console.error("DB insert error:", insertError);
-    alert("Failed to save file metadata.");
-    return;
-  }
-
-  console.log("✅ Record inserted into attachments table successfully!");
-  fetchAttachments();
-  setSelectedFile(null);
 };
 
 const handleFileUpload = (event) => {
@@ -985,19 +978,47 @@ const deleteAttachment = async (attachmentId, filePath) => {
 
         {/* 👇 Trigger file picker manually */}
         <div className="flex justify-end gap-2 mb-4">
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded"
-          >
-            Choose File
-          </Button>
+          {isUploading ? (
+            <div className="flex items-center gap-2">
+              <svg
+                className="animate-spin h-5 w-5 text-blue-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8H4z"
+                ></path>
+              </svg>
+              <span className="text-sm text-blue-400">Uploading...</span>
+            </div>
+          ) : (
+            <>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded"
+              >
+                Choose File
+              </Button>
 
-          <Button
-            onClick={handleUploadAttachment}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
-          >
-            Upload
-          </Button>
+              <Button
+                onClick={handleUploadAttachment}
+                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+              >
+                Upload
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="mt-6">
