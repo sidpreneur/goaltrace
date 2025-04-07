@@ -39,10 +39,10 @@ export default function Login() {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent animate-gradient mb-6 leading-tight">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent animate-gradient mb-6 leading-tight pb-0.5">
                 Login
             </h2>
-            <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
+            <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4 ">
                 <input
                     type="email"
                     placeholder="Email"
