@@ -61,7 +61,7 @@ export default function Home() {
       <div className="w-full max-w-xl mt-6 px-4">
         <input
           type="text"
-          placeholder="Search traces by title or tag..."
+          placeholder="Search public traces by title or tag..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md"
