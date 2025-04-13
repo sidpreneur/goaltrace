@@ -58,7 +58,7 @@ export default function Home() {
       <Navbar />
 
       {/* Search Bar */}
-      <div className="w-full max-w-xl mt-1 px-4">
+      <div className="w-full max-w-xl mt-3 px-4">
         <input
           type="text"
           placeholder="Search public traces by title, tag, name or username..."
