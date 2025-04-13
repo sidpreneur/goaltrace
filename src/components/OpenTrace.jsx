@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../helper/supabaseClient";
 import SavedTraceCard from "./SavedTraceCard";
+import Navbar from "./Navbar";
 
 const formatDisplayDate = (date) => {
   const d = new Date(date);
@@ -135,10 +136,11 @@ const OpenTrace = () => {
           description,
           status,
           created_at,
+          position,
           deadlines ( deadline )
         `)
         .eq("trace_id", trace_id)
-        .order("created_at", { ascending: false });
+        .order("position", { ascending: true }); // Changed to order by position ascending
       if (error) throw error;
       return data;
     } catch (err) {
@@ -675,11 +677,14 @@ const OpenTrace = () => {
   if (errorMsg) return <p className="text-center text-red-500">{errorMsg}</p>;
 
   return (
+    
     <div className="min-h-screen bg-gray-900 text-white">
+      <Navbar />
       <div className="max-w-4xl mx-auto p-6 relative">
+        
         {/* Trace info card with edit functionality */}
         {traceInfo && (
-          <div className="hidden md:block md:fixed md:left-6 md:top-10 z-10">
+          <div className="hidden md:block md:fixed md:left-6 md:top-20 z-10">
             <EditableTraceCard />
           </div>
         )}
@@ -690,10 +695,8 @@ const OpenTrace = () => {
             <EditableTraceCard />
           </div>
         )}
-
-        <h1 className="text-5xl font-extrabold text-center mb-6 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
-          Nodes
-        </h1>
+        
+        
         {traceDetails.length ? (
           traceDetails.map((node, idx) => (
             <React.Fragment key={node.node_id}>
