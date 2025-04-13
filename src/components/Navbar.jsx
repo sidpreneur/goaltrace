@@ -56,7 +56,8 @@ export default function Navbar() {
                     nodes (
                         heading,
                         traces (
-                            title
+                            title,
+                            user_id
                         )
                     )
                 `)
@@ -67,7 +68,16 @@ export default function Navbar() {
             if (error) {
                 console.error("Failed to fetch deadlines", error);
             } else {
-                setDeadlines(data);
+                // Now filter by user_id in the traces table
+                const filteredDeadlines = data.filter((d) => {
+                    const trace = d.nodes.traces;
+                    if (trace && trace.user_id === user.id) {
+                        return true;
+                    }
+                    return false;
+                });
+
+                setDeadlines(filteredDeadlines);
             }
         };
 
@@ -79,7 +89,7 @@ export default function Navbar() {
             <div className="text-xl font-semibold text-white">GoalTrace</div>
 
             <div className="flex items-center gap-4">
-                {user && deadlines.length > 0 && (
+                {user && (
                     <div className="relative">
                         <div
                             className="text-white cursor-pointer"
@@ -91,35 +101,42 @@ export default function Navbar() {
                         {isNotificationVisible && (
                             <div className="absolute right-0 mt-2 w-[36rem] bg-gray-800 text-white rounded-lg shadow-lg p-4 z-10">
                                 <div className="max-h-80 overflow-y-auto space-y-3 pr-2">
-                                    {deadlines.map((d) => (
-                                        <div
-                                            key={d.id}
-                                            className="flex items-center justify-between w-full border-b border-gray-700 pb-2"
-                                        >
-                                            <div className="flex-1 flex flex-col gap-1 overflow-hidden">
-                                                <span className="font-semibold text-gray-300 truncate">
-                                                    {d.nodes.heading}
-                                                </span>
-                                                <span className="text-sm text-gray-400 truncate italic">
-                                                    🧠 {d.nodes.traces.title}
-                                                </span>
-                                                <span className="text-sm text-gray-400 whitespace-nowrap">
-                                                    📅 {formatDateTime(d.deadline)}
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={() => handleMarkAsRead(d.id)}
-                                                className="text-gray-400 hover:text-gray-200 text-xs transition transform hover:scale-110"
+                                    {deadlines.length > 0 ? (
+                                        deadlines.map((d) => (
+                                            <div
+                                                key={d.id}
+                                                className="flex items-center justify-between w-full border-b border-gray-700 pb-2"
                                             >
-                                                ❌
-                                            </button>
+                                                <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+                                                    <span className="font-semibold text-gray-300 truncate">
+                                                        {d.nodes?.heading || "Untitled Node"}
+                                                    </span>
+                                                    <span className="text-sm text-gray-400 truncate italic">
+                                                        🧠 {d.nodes?.traces?.title || "Untitled Trace"}
+                                                    </span>
+                                                    <span className="text-sm text-gray-400 whitespace-nowrap">
+                                                        📅 {formatDateTime(d.deadline)}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleMarkAsRead(d.id)}
+                                                    className="text-gray-500 hover:text-gray-300 text-xs transition transform hover:scale-110"
+                                                >
+                                                    ❌
+                                                </button>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-gray-400 text-sm text-center">
+                                            No notifications
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
                 )}
+
                 {user && (
                     <button
                         onClick={handleLogout}
