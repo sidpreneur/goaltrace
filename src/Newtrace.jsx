@@ -12,6 +12,7 @@ export default function Newtrace() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tag, setTag] = useState("");
+  const [visibility, setVisibility] = useState("private");
   const [showModal, setShowModal] = useState(true);
   const [saved, setSaved] = useState(false);
   const [traceId, setTraceId] = useState(null); // Store trace_id
@@ -22,14 +23,12 @@ export default function Newtrace() {
       return;
     }
 
-    // Split tags by spaces, filtering out empty values
     const tagArray = tag.split(" ").filter((t) => t.trim().startsWith("#"));
 
     try {
-      // Step 1: Insert the trace into the `traces` table
       const { data: traceData, error: traceError } = await supabase
         .from("traces")
-        .insert([{ user_id: user.id, title }])
+        .insert([{ user_id: user.id, title, visibility }])
         .select("trace_id")
         .single();
 
@@ -40,9 +39,8 @@ export default function Newtrace() {
       }
 
       const traceId = traceData.trace_id;
-      setTraceId(traceId); // Save the trace_id in state
+      setTraceId(traceId);
 
-      // Step 2: Insert tags into the `tags` table (if they don't exist)
       const tagInsertPromises = tagArray.map(async (tagName) => {
         const { data: tagData, error: tagError } = await supabase
           .from("tags")
@@ -60,14 +58,12 @@ export default function Newtrace() {
 
       const tagIds = await Promise.all(tagInsertPromises);
 
-      // Step 3: Insert associations into the `trace_tags` table
       const traceTagInsertPromises = tagIds.map((tagId) => {
         return supabase.from("trace_tags").insert([{ trace_id: traceId, tag_id: tagId }]);
       });
 
       await Promise.all(traceTagInsertPromises);
 
-      // Success: Update UI state
       setSaved(true);
       setShowModal(false);
       alert("Trace saved successfully!");
@@ -79,37 +75,33 @@ export default function Newtrace() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 text-white overflow-hidden">
-      {/* Navbar */}
       <div className="md:fixed md:top-0 md:left-0 md:right-0 z-50">
         <Navbar />
       </div>
 
-      {/* Saved Trace Card */}
-      {/* For md and larger screens */}
       <div className="hidden md:block md:fixed md:left-6 md:top-24 z-10">
         {saved && (
           <SavedTraceCard
             title={title}
             tags={tag.split(" ").filter((t) => t.trim().startsWith("#"))}
+            visibility={visibility}
           />
         )}
       </div>
-      {/* For mobile/tablet: center the card */}
       <div className="md:hidden mt-16 flex justify-center px-4">
         {saved && (
           <SavedTraceCard
             title={title}
             tags={tag.split(" ").filter((t) => t.trim().startsWith("#"))}
+            visibility={visibility}
           />
         )}
       </div>
 
-      {/* Roadmap */}
       <div className="min-h-screen flex flex-col justify-center items-center overflow-hidden pt-16 md:pt-24">
         <Roadmap traceId={traceId} />
       </div>
 
-      {/* Modal for new trace details */}
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -135,6 +127,14 @@ export default function Newtrace() {
                 onChange={(e) => setTag(e.target.value)}
                 className="w-full border p-2 rounded mb-2 bg-gray-700 border-gray-600 text-white"
               />
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value)}
+                className="w-full border p-2 rounded mb-4 bg-gray-700 border-gray-600 text-white"
+              >
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
               <div className="flex justify-end gap-2">
                 <Button
                   onClick={() => setShowModal(false)}

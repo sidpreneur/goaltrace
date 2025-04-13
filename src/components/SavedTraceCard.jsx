@@ -1,26 +1,50 @@
-import React from 'react';
-import { Layers, Tag, BookOpen } from 'lucide-react';
+import { BookOpen, Tag, Eye, EyeOff } from "lucide-react";
 
-const SavedTraceCard = ({ title, description, tags }) => {
-    return (
-      <div className="bg-gray-800 p-5 rounded-xl shadow-lg border border-gray-700 w-auto inline-block self-start">
-        <div className="flex items-center mb-3">
-          <Layers className="text-blue-400 mr-3" size={24} />
-          <h2 className="text-xl font-bold text-white">{title}</h2>
+export default function SavedTraceCard({ title, tags, visibility }) {
+  return (
+    <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 shadow-xl w-full max-w-xs hover:shadow-2xl transition-shadow duration-300">
+      {/* Title Section */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="text-blue-400">
+          <BookOpen className="w-6 h-6" />
         </div>
-        <div className="flex items-center mb-2">
-          <Tag className="text-purple-400 mr-3" size={20} />
-          <h3 className="text-white font-semibold">Tags:</h3>
-        </div>
+        <h2 className="text-lg font-bold text-white">{title}</h2>
+      </div>
+
+      {/* Visibility */}
+      <div className="flex items-center gap-2 mb-3">
+        {visibility === "public" ? (
+          <Eye className="text-green-400 w-5 h-5" />
+        ) : (
+          <EyeOff className="text-yellow-400 w-5 h-5" />
+        )}
+        <span
+          className={`text-sm font-bold ${
+            visibility === "public" ? "text-green-400" : "text-yellow-400"
+          }`}
+        >
+          {visibility}
+        </span>
+      </div>
+
+      {/* Tags */}
+      <div className="flex items-start gap-2">
+        <Tag className="text-purple-400 w-5 h-5 mt-1" />
         <div className="flex flex-wrap gap-2">
-          {tags.map((tag, index) => (
-            <span key={index} className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-              {tag}
-            </span>
-          ))}
+          {tags.length > 0 ? (
+            tags.map((tag, index) => (
+              <span
+                key={index}
+                className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-bold"
+              >
+                {tag}
+              </span>
+            ))
+          ) : (
+            <span className="text-sm text-gray-400 font-bold">No tags</span>
+          )}
         </div>
       </div>
-    );
-};
-
-export default SavedTraceCard;
+    </div>
+  );
+}
