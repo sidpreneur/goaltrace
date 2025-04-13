@@ -5,6 +5,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true); // Add loading state
 
     useEffect(() => {
         const getSession = async () => {
@@ -13,11 +14,12 @@ export const AuthProvider = ({ children }) => {
             if (data?.session) {
                 const { user } = data.session;
                 setUser({
-                    id: user.id,  // Store user ID
+                    id: user.id,
                     email: user.email,
                     name: user.user_metadata?.name || "User",
                 });
             }
+            setLoading(false); // Done checking session
         };
 
         getSession();
@@ -28,13 +30,14 @@ export const AuthProvider = ({ children }) => {
                 if (session) {
                     const { user } = session;
                     setUser({
-                        id: user.id,  // Store user ID
+                        id: user.id,
                         email: user.email,
                         name: user.user_metadata?.name || "User",
                     });
                 } else {
                     setUser(null);
                 }
+                setLoading(false); // Done updating session
             }
         );
 
@@ -42,7 +45,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, setUser }}>
+        <AuthContext.Provider value={{ user, setUser, loading }}>
             {children}
         </AuthContext.Provider>
     );
