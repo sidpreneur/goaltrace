@@ -3,6 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../helper/supabaseClient";
 import SavedTraceCard from "./SavedTraceCard";
 import Navbar from "./Navbar";
+import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { Button } from "./ui/button";
+
 
 const formatDisplayDate = (date) => {
   const d = new Date(date);
@@ -94,12 +98,15 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 const OpenTrace = () => {
   const { traceId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [traceDetails, setTraceDetails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [editingNode, setEditingNode] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [traceInfo, setTraceInfo] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
+
   const [showTraceModal, setShowTraceModal] = useState(false);
   const [nodeAttachments, setNodeAttachments] = useState({});
 
@@ -108,6 +115,7 @@ const OpenTrace = () => {
   const [traceEditForm, setTraceEditForm] = useState({
     title: "",
     tags: "",
+    visibilty: "private"
   });
 
   // State for links and notes
@@ -175,7 +183,33 @@ const OpenTrace = () => {
       setLoadingAttachments(false);
     }
   };
+//handling addnode in exisitng
+  const handleAddNode = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("nodes")
+        .insert({
+          trace_id: traceId,
+          heading: "New Node",
+          description: "Node description...",
+          status: "red",
+          position: traceDetails.length + 1, // next position
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+  
+      if (error) throw error;
+  
+      const updated = await fetchTraceDetails(traceId);
+      setTraceDetails(updated);
+    } catch (err) {
+      console.error("Failed to add node:", err);
+      alert("Failed to add node. Please try again.");
+    }
+  };
 
+  
   // Handle file upload for attachments
   const handleFileUpload = async (file, nodeId) => {
     if (!file || !nodeId) return;
@@ -417,31 +451,37 @@ const OpenTrace = () => {
       const details = await fetchTraceDetails(traceId);
 
       const { data: trace, error: traceError } = await supabase
-        .from("traces")
-        .select(`
-          title,
-          trace_id,
-          trace_tags (
-            tag_id,
-            tags (
-              name,
-              tag_id
-            )
-          )
-        `)
-        .eq("trace_id", traceId)
-        .single();
+  .from("traces")
+  .select(`
+    title,
+    trace_id,
+    user_id,
+    visibility,
+    trace_tags (
+      tag_id,
+      tags (
+        name,
+        tag_id
+      )
+    )
+  `)
+  .eq("trace_id", traceId)
+  .single();
+
+    
 
       if (traceError) {
         console.error("Failed to fetch trace info", traceError);
       } else {
         const traceTags = trace.trace_tags || [];
         const tagNames = traceTags.map((tt) => tt.tags?.name).filter(Boolean);
+        setIsOwner(trace.user_id === user?.id);
         setTraceInfo({ ...trace, tags: tagNames });
         // Initialize trace edit form
         setTraceEditForm({
           title: trace.title || "Untitled Trace",
           tags: tagNames.join(", "),
+          visibility: trace.visibility || "private", // <- Add this
         });
       }
 
@@ -529,6 +569,15 @@ const OpenTrace = () => {
         .delete()
         .eq("trace_id", traceId);
 
+        await supabase
+  .from("traces")
+  .update({
+    title: traceEditForm.title,
+    visibility: traceEditForm.visibility,
+  })
+  .eq("trace_id", traceId);
+
+
       // Parse and add new tags
       const newTagNames = traceEditForm.tags
         .split(",")
@@ -582,7 +631,7 @@ const OpenTrace = () => {
         .map(tt => tt.tags?.name)
         .filter(Boolean);
 
-      setTraceInfo({ ...updatedTrace, tags: updatedTagNames });
+      setTraceInfo({ ...updatedTrace, tags: updatedTagNames, visibility: traceEditForm.visibility, });
       setEditingTrace(false);
     } catch (err) {
       console.error("Failed to update trace:", err);
@@ -630,6 +679,30 @@ const OpenTrace = () => {
               onChange={(e) => setTraceEditForm({ ...traceEditForm, title: e.target.value })}
             />
           </div>
+          <div className="flex items-center gap-2 mb-2">
+  <button
+    onClick={() =>
+      setTraceEditForm((prev) => ({
+        ...prev,
+        visibility: prev.visibility === "public" ? "private" : "public",
+      }))
+    }
+    className="flex items-center text-sm gap-1 text-white bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded"
+  >
+    {traceEditForm.visibility === "public" ? (
+      <>
+        <Eye className="w-4 h-4 text-green-400" />
+        <span className="text-green-400 font-bold">Public</span>
+      </>
+    ) : (
+      <>
+        <EyeOff className="w-4 h-4 text-yellow-400" />
+        <span className="text-yellow-400 font-bold">Private</span>
+      </>
+    )}
+  </button>
+</div>
+
           <div className="mb-2">
             <label className="block text-gray-400 text-sm mb-1">Tags (comma separated)</label>
             <input
@@ -661,13 +734,17 @@ const OpenTrace = () => {
     return (
       <div
         className="relative group w-64 cursor-pointer transition-transform duration-200 hover:scale-105"
-        onClick={() => setEditingTrace(true)}
-      >
+        onClick={() => {
+          if (isOwner) setEditingTrace(true);
+        }}
+              >
         <div className="w-full">
-          <SavedTraceCard
-            title={traceInfo?.title || "Untitled Trace"}
-            tags={Array.isArray(traceInfo?.tags) ? traceInfo.tags : []}
-          />
+        <SavedTraceCard
+  title={traceInfo?.title || "Untitled Trace"}
+  tags={Array.isArray(traceInfo?.tags) ? traceInfo.tags : []}
+  visibility={traceInfo?.visibility}
+/>
+
         </div>
       </div>
     );
@@ -797,19 +874,23 @@ const OpenTrace = () => {
                         {new Date(node.created_at).toLocaleDateString()}{" "}
                         {new Date(node.created_at).toLocaleTimeString()}
                       </p>
-                      <div className="flex justify-between flex-wrap gap-2 mt-4">
+                      <div className={`flex justify-center ${isOwner ? "gap-4 p-6" : "gap-8 p-6"}`}>
+                      {isOwner && (
                         <button
                           className="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600"
                           onClick={() => handleDelete(node.node_id)}
                         >
                           Delete
                         </button>
+                        )}
+
                         <button
                           className="bg-[#8F79BE] text-white px-3 py-2 rounded-lg hover:opacity-90"
                           onClick={() => handleOpenLinks(node.node_id)}
                         >
                           Links
                         </button>
+                        
                         <button
                           className="bg-[#8F79BE] text-white px-3 py-2 rounded-lg hover:opacity-90"
                           onClick={() => handleOpenNotes(node.node_id)}
@@ -822,18 +903,33 @@ const OpenTrace = () => {
                         >
                           Attachments
                         </button>
+                        {isOwner && (
                         <button
                           className="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600"
                           onClick={() => handleEdit(node)}
                         >
                           Edit
                         </button>
+                        )}
                       </div>
                     </>
                   )}
                 </div>
               </div>
-              {idx < traceDetails.length - 1 && <VerticalArrow />}
+              <>
+  {idx < traceDetails.length - 1 ? (
+    <VerticalArrow />
+  ) : (
+    // Only after last node, show the Add Node Button
+    isOwner && (
+      <div className="flex justify-center mt-8">
+        <Button onClick={handleAddNode}>+ Add New Node</Button>
+      </div>
+    )
+  )}
+</>
+
+
             </React.Fragment>
           ))
         ) : (
@@ -849,6 +945,7 @@ const OpenTrace = () => {
         onClose={() => setShowLinksModal(false)}
         title="Links"
       >
+        {isOwner && (
         <div className="mb-4">
           <div className="flex items-center gap-2">
             <input
@@ -866,6 +963,7 @@ const OpenTrace = () => {
             </button>
           </div>
         </div>
+        )}
         {loadingLinks ? (
           <p className="text-gray-400 text-center">Loading links...</p>
         ) : (
@@ -884,14 +982,18 @@ const OpenTrace = () => {
                   >
                     {link.file_url}
                   </a>
-                  <button
-                    onClick={() => deleteLink(link.links_id)}
-                    className="text-red-400 hover:text-red-500"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  
+                  {isOwner && (
+  <button
+    onClick={() => deleteLink(link.links_id)}
+    className="text-red-400 hover:text-red-500"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  </button>
+)}
+
                 </div>
               ))
             ) : (
@@ -907,6 +1009,8 @@ const OpenTrace = () => {
         onClose={() => setShowNotesModal(false)}
         title="Notes"
       >
+        {isOwner && (
+
         <div className="mb-4">
           <div className="flex flex-col gap-2">
             <textarea
@@ -924,6 +1028,7 @@ const OpenTrace = () => {
             </button>
           </div>
         </div>
+        )}
         {loadingNotes ? (
           <p className="text-gray-400 text-center">Loading notes...</p>
         ) : (
@@ -938,14 +1043,17 @@ const OpenTrace = () => {
                     <p className="text-xs text-gray-400">
                       {new Date(note.created_at).toLocaleString()}
                     </p>
-                    <button
-                      onClick={() => deleteNote(note.notes_id)}
-                      className="text-red-400 hover:text-red-500"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    {isOwner && (
+  <button
+    onClick={() => deleteNote(note.notes_id)}
+    className="text-red-400 hover:text-red-500"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  </button>
+)}
+
                   </div>
                   <p className="text-white whitespace-pre-wrap">{note.content}</p>
                 </div>
@@ -963,6 +1071,8 @@ const OpenTrace = () => {
         onClose={() => setShowAttachmentsModal(false)}
         title="Attachments"
       >
+        {isOwner && (
+
         <div className="mb-4">
           <div className="flex flex-col gap-2">
             <input
@@ -983,6 +1093,7 @@ const OpenTrace = () => {
             </label>
           </div>
         </div>
+        )}
         {loadingAttachments ? (
           <p className="text-gray-400 text-center">Loading attachments...</p>
         ) : (
@@ -1011,14 +1122,17 @@ const OpenTrace = () => {
                       )}
                     </a>
                   </div>
-                  <button
-                    onClick={() => deleteAttachment(attachment.attachment_id, currentNodeId, attachment.file_path)}
-                    className="text-red-400 hover:text-red-500 ml-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  {isOwner && (
+  <button
+    onClick={() => deleteAttachment(attachment.attachment_id, currentNodeId, attachment.file_path)}
+    className="text-red-400 hover:text-red-500 ml-2"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  </button>
+)}
+
                 </div>
               ))
             ) : (
