@@ -7,6 +7,7 @@ export default function Register() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [name, setName] = useState("");
+    const [username, setUsername] = useState("");
     const [message, setMessage] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
@@ -31,11 +32,24 @@ export default function Register() {
         if (data?.user) {
             const { user } = data;
 
+            // Check if username already exists
+            const { data: existingUser, error: fetchError } = await supabase
+                .from("db_user")
+                .select("username")
+                .eq("username", username)
+                .single();
+
+            if (existingUser) {
+                setMessage("Username is already taken.");
+                return;
+            }
+
             const { error: dbError } = await supabase.from("db_user").insert([
                 {
                     user_id: user.id,
                     name,
                     email,
+                    username,
                 },
             ]);
 
@@ -60,6 +74,7 @@ export default function Register() {
         setEmail("");
         setPassword("");
         setName("");
+        setUsername("");
     };
 
     return (
@@ -73,6 +88,13 @@ export default function Register() {
                     placeholder="Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    className="w-full p-3 rounded-lg border border-blue-400 bg-gray-800 text-white focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                    type="text"
+                    placeholder="Username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="w-full p-3 rounded-lg border border-blue-400 bg-gray-800 text-white focus:ring-2 focus:ring-blue-500"
                 />
                 <input
