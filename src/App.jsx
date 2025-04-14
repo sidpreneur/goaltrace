@@ -17,42 +17,14 @@ export default function App() {
       OneSignal.push(function () {
         OneSignal.init({
           appId: "6f19a7af-009c-40ae-b29a-252ab1b591d9",
-          notifyButton: {
-            enable: true,
-          },
+          notifyButton: { enable: true },
           allowLocalhostAsSecureOrigin: true,
-        });
-  
-        // When subscription changes
-        OneSignal.on('subscriptionChange', async function (isSubscribed) {
-          if (isSubscribed) {
-            try {
-              const userId = await OneSignal.getUserId(); // OneSignal ID
-              const {
-                data: { user },
-                error: authError,
-              } = await supabase.auth.getUser();
-  
-              if (authError) throw authError;
-  
-              const { error: updateError } = await supabase
-                .from("db_user")
-                .update({ onesignal_id: userId })
-                .eq("user_id", user.id);
-  
-              if (updateError) throw updateError;
-  
-              console.log("✅ OneSignal ID stored in db_user.");
-            } catch (err) {
-              console.error("❌ Error syncing OneSignal ID:", err.message);
-            }
-          }
         });
       });
       window.OneSignalInitialized = true;
     }
   }, []);
-  
+    
 
   return (
     <AuthProvider>
