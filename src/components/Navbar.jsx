@@ -73,12 +73,12 @@ export default function Navbar() {
 
     useEffect(() => {
         if (!user) return;
-
+    
         const fetchDeadlines = async () => {
             const now = new Date();
             const fiveDaysLater = new Date();
             fiveDaysLater.setDate(now.getDate() + 5);
-
+    
             const { data, error } = await supabase
                 .from("deadlines")
                 .select(`
@@ -96,7 +96,7 @@ export default function Navbar() {
                 .eq("notified", false)
                 .lte("deadline", fiveDaysLater.toISOString())
                 .order("deadline", { ascending: true });
-
+    
             if (error) {
                 console.error("Failed to fetch deadlines", error);
             } else {
@@ -104,27 +104,59 @@ export default function Navbar() {
                     const trace = d.nodes.traces;
                     return trace && trace.user_id === user.id;
                 });
+    
                 setDeadlines(filteredDeadlines);
+    
+                // 🔔 Push notification via OneSignal
+                filteredDeadlines.forEach((deadline) => {
+                    const title = deadline.nodes?.heading || "Untitled Node";
+                    const message = `Upcoming: ${deadline.nodes?.traces?.title || "Untitled Trace"} due on ${formatDateTime(deadline.deadline)}`;
+    
+                    if (window.OneSignal) {
+                        window.OneSignal.push(() => {
+                            window.OneSignal.sendSelfNotification(
+                                title,
+                                message,
+                                null,
+                                null,
+                                {
+                                    notificationType: "deadline",
+                                    deadlineId: deadline.id,
+                                }
+                            );
+                        });
+                    }
+    
+                    // Mark as notified in Supabase
+                    supabase
+                        .from("deadlines")
+                        .update({ notified: true })
+                        .eq("id", deadline.id)
+                        .then(({ error }) => {
+                            if (error) console.error("Failed to mark as notified", error);
+                        });
+                });
             }
         };
-
+    
         const fetchProfile = async () => {
             const { data, error } = await supabase
                 .from("db_user")
                 .select("name, username, email")
                 .eq("user_id", user.id)
                 .single();
-
+    
             if (error) {
                 console.error("Failed to fetch profile info", error);
             } else {
                 setProfileInfo(data);
             }
         };
-
+    
         fetchDeadlines();
         fetchProfile();
     }, [user]);
+    
 
     return (
         <div className="w-full flex justify-between items-center px-6 py-4 bg-gray-900 shadow-lg relative">
