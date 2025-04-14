@@ -109,6 +109,27 @@ export default function Navbar() {
         });
 
         setDeadlines(filteredDeadlines);
+
+        // Optionally, send notifications
+        filteredDeadlines.forEach((deadline) => {
+          const title = deadline.nodes?.heading || "Untitled Node";
+          const message = `Upcoming: ${deadline.nodes?.traces?.title || "Untitled Trace"} due on ${formatDateTime(deadline.deadline)}`;
+
+          if (window.OneSignal) {
+            window.OneSignal.push(() => {
+              window.OneSignal.sendSelfNotification(
+                title,
+                message,
+                `${window.location.origin}/home`,
+                null,
+                {
+                  notificationType: "deadline",
+                  deadlineId: deadline.id,
+                }
+              );
+            });
+          }
+        });
       }
     };
 
@@ -204,7 +225,6 @@ export default function Navbar() {
               >
                 🔔 {deadlines.length}
               </div>
-
               {isNotificationVisible && (
                 <div className="absolute right-0 mt-2 w-[36rem] bg-gray-800 text-white rounded-lg shadow-lg p-4 z-10">
                   <div className="max-h-80 overflow-y-auto space-y-3 pr-2">
@@ -316,7 +336,6 @@ export default function Navbar() {
             </button>
           )}
         </div>
-
       </div>
 
       {/* FULL PAGE SEARCH RESULTS (Same like Home.jsx) */}

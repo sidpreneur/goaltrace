@@ -17,16 +17,14 @@ export default function App() {
       OneSignal.push(function () {
         OneSignal.init({
           appId: "6f19a7af-009c-40ae-b29a-252ab1b591d9",
-          notifyButton: {
-            enable: true,
-          },
+          notifyButton: { enable: true },
           allowLocalhostAsSecureOrigin: true,
         });
       });
       window.OneSignalInitialized = true;
     }
   }, []);
-  
+    
 
   return (
     <AuthProvider>
