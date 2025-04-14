@@ -6,14 +6,36 @@ import Navbar from "./Navbar";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faGear } from '@fortawesome/free-solid-svg-icons';
 
 
-const formatDisplayDate = (date) => {
-  const d = new Date(date);
+
+const formatDisplayDate = (dateString) => {
+  const d = new Date(dateString);
+  const hours = d.getHours().toString().padStart(2, "0");
+  const minutes = d.getMinutes().toString().padStart(2, "0");
+
   return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1)
     .toString()
-    .padStart(2, "0")}/${d.getFullYear().toString().slice(-2)}`;
+    .padStart(2, "0")}/${d.getFullYear().toString().slice(-2)} ${hours}:${minutes}`;
 };
+
+
+const formatForDateTimeLocal = (dateString) => {
+  const d = new Date(dateString);
+  const year = d.getFullYear();
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  const day = d.getDate().toString().padStart(2, "0");
+  const hours = d.getHours().toString().padStart(2, "0");
+  const minutes = d.getMinutes().toString().padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+
+
+
 
 const formatForInput = (date) => {
   const d = new Date(date);
@@ -106,6 +128,10 @@ const OpenTrace = () => {
   const [editForm, setEditForm] = useState({});
   const [traceInfo, setTraceInfo] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+const [settingsNode, setSettingsNode] = useState(null);
+
+  
 
   const [showTraceModal, setShowTraceModal] = useState(false);
   const [nodeAttachments, setNodeAttachments] = useState({});
@@ -505,10 +531,8 @@ const OpenTrace = () => {
       heading: node.heading,
       description: node.description,
       status: node.status,
-      deadline:
-        node.deadlines?.[0]?.deadline
-          ? formatForInput(node.deadlines[0].deadline)
-          : "",
+      deadline: node.deadlines?.[0]?.deadline ? formatForDateTimeLocal(node.deadlines[0].deadline) : "",
+
     });
   };
 
@@ -757,6 +781,18 @@ const OpenTrace = () => {
     
     <div className="min-h-screen bg-gray-900 text-white">
       <Navbar />
+      <div className="w-full flex justify-end px-5 pt-6">
+  <button
+    onClick={() => {
+      navigator.clipboard.writeText(window.location.href);
+      alert("Link copied to clipboard!");
+    }}
+    className="bg-[#8F79BE] text-white px-3 py-2 rounded-lg hover:opacity-90"
+
+  >
+    📤 Share Trace
+  </button>
+</div>
       <div className="max-w-4xl mx-auto p-6 relative">
         
         {/* Trace info card with edit functionality */}
@@ -774,79 +810,110 @@ const OpenTrace = () => {
         )}
         
         
-        {traceDetails.length ? (
-          traceDetails.map((node, idx) => (
-            <React.Fragment key={node.node_id}>
-              <div className="flex justify-center items-center">
-                <div className="bg-gray-800 p-5 rounded-lg shadow-lg w-full max-w-md">
-                  {editingNode === node.node_id ? (
-                    <>
-                      <h3 className="text-2xl font-bold text-blue-400 mb-4">
-                        Edit Node
-                      </h3>
-                      <label className="block text-gray-400 mb-2">Heading</label>
-                      <input
-                        className="w-full p-2 mb-4 bg-gray-800 text-white rounded-lg border border-gray-600"
-                        type="text"
-                        value={editForm.heading}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, heading: e.target.value })
-                        }
-                      />
-                      <label className="block text-gray-400 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        className="w-full p-2 mb-4 bg-gray-800 text-white rounded-lg border border-gray-600"
-                        value={editForm.description}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            description: e.target.value,
-                          })
-                        }
-                      />
-                      <label className="block text-gray-400 mb-2">Status</label>
-                      <StatusSelector
-                        currentStatus={editForm.status}
-                        onSelect={(c) =>
-                          setEditForm({ ...editForm, status: c })
-                        }
-                      />
-                      <label className="block text-gray-400 mb-2 mt-4">
-                        Deadline
-                      </label>
-                      <input
-                        className="w-full p-2 mb-4 bg-gray-800 text-white rounded-lg border border-gray-600"
-                        type="date"
-                        value={editForm.deadline}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            deadline: e.target.value,
-                          })
-                        }
-                      />
-                      <div className="flex justify-between">
-                        <button
-                          className="bg-[#8F79BE] text-white px-4 py-2 rounded-lg hover:opacity-90"
-                          onClick={handleSaveEdit}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-                          onClick={() => setEditingNode(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="text-2xl font-bold text-blue-400">
-                        {node.heading}
-                      </h3>
+          {traceDetails.length ? (
+            traceDetails.map((node, idx) => (
+              <React.Fragment key={node.node_id}>
+                <div className="flex justify-center items-center">
+                <div className=" relative bg-gray-800 p-5 rounded-lg shadow-lg w-full max-w-md">
+                {editingNode === node.node_id ? (
+                      <>
+                        <h3 className="text-2xl font-bold text-blue-400 mb-4">
+                          Edit Node
+                        </h3>
+                        <label className="block text-gray-400 mb-2">Heading</label>
+                        <input
+                          className="w-full p-2 mb-4 bg-gray-800 text-white rounded-lg border border-gray-600"
+                          type="text"
+                          value={editForm.heading}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, heading: e.target.value })
+                          }
+                        />
+                        <label className="block text-gray-400 mb-2">
+                          Description
+                        </label>
+                        <textarea
+                          className="w-full p-2 mb-4 bg-gray-800 text-white rounded-lg border border-gray-600"
+                          value={editForm.description}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              description: e.target.value,
+                            })
+                          }
+                        />
+                        <label className="block text-gray-400 mb-2">Status</label>
+                        <StatusSelector
+                          currentStatus={editForm.status}
+                          onSelect={(c) =>
+                            setEditForm({ ...editForm, status: c })
+                          }
+                        />
+                        <label className="block text-gray-400 mb-2 mt-4">Deadline (Date & Time)</label>
+<input
+  className="w-full p-2 mb-4 bg-gray-800 text-white rounded-lg border border-gray-600"
+  type="datetime-local"
+  value={editForm.deadline || ""}
+  onChange={(e) =>
+    setEditForm({
+      ...editForm,
+      deadline: e.target.value,
+    })
+  }
+/>
+
+
+
+
+
+                        <div className="flex justify-between">
+                          <button
+                            className="bg-[#8F79BE] text-white px-4 py-2 rounded-lg hover:opacity-90"
+                            onClick={handleSaveEdit}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                            onClick={() => setEditingNode(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center">
+    <h3 className="text-2xl font-bold text-blue-400">
+      {node.heading}
+    </h3>
+
+    {isOwner && (
+  <div className="relative group">
+    <button
+      onClick={() => {
+        setSettingsNode(node);
+        setShowSettingsModal(true);
+      }}
+      className="text-gray-400 hover:text-white transition"
+    >
+      <FontAwesomeIcon
+        icon={faGear}
+        className="h-5 w-5 hover:rotate-12 transition-transform duration-300"
+      />
+    </button>
+
+    {/* Gear Tooltip */}
+    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 
+    bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 
+    transition-opacity whitespace-nowrap z-20">
+      Customize
+    </span>
+  </div>
+)}
+
+
+</div>
                       <p className="text-gray-400 mt-2">
                         <strong>Description:</strong> {node.description}
                       </p>
@@ -874,18 +941,11 @@ const OpenTrace = () => {
                         {new Date(node.created_at).toLocaleDateString()}{" "}
                         {new Date(node.created_at).toLocaleTimeString()}
                       </p>
-                      <div className={`flex justify-center ${isOwner ? "gap-4 p-6" : "gap-8 p-6"}`}>
-                      {isOwner && (
-                        <button
-                          className="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600"
-                          onClick={() => handleDelete(node.node_id)}
-                        >
-                          Delete
-                        </button>
-                        )}
+                      <div className={`flex justify-center ${isOwner ? "gap-8 p-6 mt-2" : "gap-8 p-6 mt-2"}`}>
+                      
 
                         <button
-                          className="bg-[#8F79BE] text-white px-3 py-2 rounded-lg hover:opacity-90"
+                          className="bg-[#8F79BE] text-white px-3  py-2 rounded-lg hover:opacity-90"
                           onClick={() => handleOpenLinks(node.node_id)}
                         >
                           Links
@@ -903,20 +963,18 @@ const OpenTrace = () => {
                         >
                           Attachments
                         </button>
-                        {isOwner && (
-                        <button
-                          className="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600"
-                          onClick={() => handleEdit(node)}
-                        >
-                          Edit
-                        </button>
-                        )}
+                        
                       </div>
                     </>
                   )}
                 </div>
               </div>
+              
               <>
+  
+
+
+
   {idx < traceDetails.length - 1 ? (
     <VerticalArrow />
   ) : (
@@ -930,14 +988,22 @@ const OpenTrace = () => {
 </>
 
 
-            </React.Fragment>
+</React.Fragment>
           ))
         ) : (
-          <p className="text-gray-400 text-center text-lg">
-            No nodes found for this trace.
-          </p>
+          <div className="flex flex-col items-center justify-center mt-10">
+            <p className="text-gray-400 text-center text-lg mb-6">
+              No nodes found for this trace.
+            </p>
+
+            {/* Add Node Button */}
+            <Button onClick={handleAddNode}>
+              + Add Node
+            </Button>
+          </div>
         )}
       </div>
+
 
       {/* Links Modal */}
       <Modal
@@ -1141,6 +1207,41 @@ const OpenTrace = () => {
           </div>
         )}
       </Modal>
+      
+      <Modal
+  isOpen={showSettingsModal}
+  onClose={() => setShowSettingsModal(false)}
+  title="Node Settings"
+>
+  <div className="flex flex-col items-center gap-4 max-w-xs mx-auto">
+    {/* Edit Button */}
+    <button
+      onClick={() => {
+        handleEdit(settingsNode);
+        setShowSettingsModal(false);
+      }}
+      className="w-40 py-2 rounded-lg bg-[#8F79BE] text-white hover:opacity-90 transition"
+    >
+      ✏️ Edit Node
+    </button>
+
+    {/* Delete Button */}
+    <button
+  onClick={() => {
+    handleDelete(settingsNode.node_id);
+    setShowSettingsModal(false);
+  }}
+  className="w-40 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+>
+  🗑️ Delete Node
+</button>
+
+  </div>
+</Modal>
+
+
+
+
     </div>
   );
 };
