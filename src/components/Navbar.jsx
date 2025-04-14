@@ -117,7 +117,7 @@ export default function Navbar() {
                             window.OneSignal.sendSelfNotification(
                                 title,
                                 message,
-                                null,
+                                `${window.location.origin}/home`, 
                                 null,
                                 {
                                     notificationType: "deadline",
