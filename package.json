@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/vite": "^4.0.12",
+    "axios": "^1.8.4",
     "framer-motion": "^12.5.0",
     "lucide-react": "^0.484.0",
     "onesignal": "^0.1.2",
