@@ -60,7 +60,7 @@ const getStatusStyle = (status) => {
 const getStatusText = (status) => {
   switch (status) {
     case "red":
-      return "Not Started";
+      return "Not Completed";
     case "yellow":
       return "In Progress";
     case "green":
