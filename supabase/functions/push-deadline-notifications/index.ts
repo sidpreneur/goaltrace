@@ -1,8 +1,10 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std/http/server.ts";
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
-import { createClient } from "@supabase/supabase-js";
-import axios from "axios";
+
+// Use esm.sh for axios and supabase-js compatibility
+import axios from "https://esm.sh/axios@1.6.8";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.5";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -14,7 +16,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 serve(async (_req) => {
   const now = new Date();
   const soon = new Date();
-  soon.setDate(now.getDate() + 1);
+  soon.setDate(now.getDate() + 5);
+  
 
   const { data, error } = await supabase
     .from("deadlines")

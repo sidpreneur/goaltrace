@@ -459,8 +459,7 @@ export default function Roadmap({ traceId }) { // Accept traceId as a prop
 
 // Inside your component
 const { user } = useAuth(); // ✅ get the current user
-console.log("user_id (frontend):", user?.id);
-console.log("auth.uid() (SQL): will match:", user?.id);
+
 
 
 const fetchAttachmentsForNode = async (node) => {
