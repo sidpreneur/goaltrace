@@ -11,6 +11,7 @@ import { faGear } from '@fortawesome/free-solid-svg-icons';
 
 
 
+
 const formatDisplayDate = (dateString) => {
   const d = new Date(dateString);
   const hours = d.getHours().toString().padStart(2, "0");
@@ -237,61 +238,81 @@ const [settingsNode, setSettingsNode] = useState(null);
 
   
   // Handle file upload for attachments
-  const handleFileUpload = async (file, nodeId) => {
-    if (!file || !nodeId) return;
-    
-    setUploadingFile(true);
+  const handleFileUpload = async (file, nodeId, user) => {
+    if (!file || !nodeId || !user?.id) {
+      alert("Missing file, node ID, or user ID.");
+      return null;
+    }
+  
+    setUploadingFile(true); // Start loading
+  
+    const sanitizedFileName = file.name.replace(/[^\w.\-]/g, '_');
+    const uniqueFileName = `${Date.now()}-${sanitizedFileName}`;
+    const filePath = `${user.id}/${nodeId}/${uniqueFileName}`;
+  
     try {
-      // Generate unique file name
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `${nodeId}/${fileName}`;
-      
       // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('attachments')
-        .upload(filePath, file);
-        
-      if (uploadError) throw uploadError;
-      
+      const { error: uploadError } = await supabase.storage
+        .from("attachments-bucket")
+        .upload(filePath, file, { upsert: true });
+  
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        alert("File upload failed.");
+        return null;
+      }
+  
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('attachments')
+      const { data: publicUrlData, error: urlError } = supabase
+        .storage
+        .from("attachments-bucket")
         .getPublicUrl(filePath);
-      
-      // Add record to attachments table
-      const { data, error } = await supabase
+  
+      if (urlError || !publicUrlData?.publicUrl) {
+        console.error("URL generation error:", urlError);
+        alert("Failed to retrieve file URL.");
+        return null;
+      }
+  
+      // Insert into attachments table
+      const { data, error: insertError } = await supabase
         .from("attachments")
-        .insert({
-          node_id: nodeId,
-          file_url: publicUrl,
-          uploaded_at: new Date().toISOString(),
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          // Assuming user_id is available in your app context
-          user_id: "current_user_id" // Replace with actual user ID
-        })
+        .insert([
+          {
+            attachment_id: crypto.randomUUID(),
+            node_id: nodeId,
+            file_name: filePath,
+            file_url: publicUrlData.publicUrl,
+            file_type: file.type,
+            file_size: file.size,
+            uploaded_at: new Date().toISOString(),
+            user_id: user.id,
+          },
+        ])
         .select();
-        
-      if (error) throw error;
-      
+  
+      if (insertError) {
+        console.error("DB insert error:", insertError);
+        alert("Failed to save file metadata.");
+        return null;
+      }
+  
       // Update state with new attachment
       setNodeAttachments(prev => ({
         ...prev,
         [nodeId]: [...(prev[nodeId] || []), data[0]]
       }));
-      
+  
       return data[0];
     } catch (err) {
-      console.error("Failed to upload file:", err);
-      alert("Failed to upload file. Please try again.");
+      console.error("Unexpected error during upload:", err);
+      alert("An unexpected error occurred.");
       return null;
     } finally {
-      setUploadingFile(false);
+      setUploadingFile(false); // Stop loading
     }
   };
-
+  
   // Delete an attachment
   const deleteAttachment = async (attachmentId, nodeId, filePath) => {
     if (!window.confirm("Delete this attachment?")) return;
@@ -1141,16 +1162,17 @@ const [settingsNode, setSettingsNode] = useState(null);
 
         <div className="mb-4">
           <div className="flex flex-col gap-2">
-            <input
-              type="file"
-              id="file-upload"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  handleFileUpload(e.target.files[0], currentNodeId);
-                }
-              }}
-            />
+          <input
+  type="file"
+  id="file-upload"
+  className="hidden"
+  onChange={(e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFileUpload(e.target.files[0], currentNodeId, user); // Pass user here
+    }
+  }}
+/>
+
             <label
               htmlFor="file-upload"
               className="bg-[#8F79BE] text-white px-3 py-2 rounded text-center cursor-pointer hover:opacity-90"
